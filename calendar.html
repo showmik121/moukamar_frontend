@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ফুলের ক্যালেন্ডার — মৌখামার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .now-card { border-radius: 14px; padding: 16px 18px; background: #FFF; border: 1px solid var(--line); }
+  .now-card.hot { background: var(--honey); border-color: var(--honey); }
+  .now-card .k { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .now-card.hot .k, .now-card.hot .s { color: #3A2600; }
+  .now-card b { display: block; font-size: 20px; }
+  .now-card .s { font-size: 14px; color: var(--muted-2); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" data-active="calendar"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1>ফুলের ক্যালেন্ডার</h1>
+        <div class="sub">কোন মাসে কোন জেলায় কোন ফসলে ফুল — সেই অনুযায়ী বাক্স নিয়ে যান</div>
+      </div>
+      <label class="field">মাস দেখুন
+        <select id="month" style="min-width:200px"></select>
+      </label>
+    </header>
+
+    <section aria-label="এই মাসে" class="stats" id="nowCards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>সারা বছরের ফুল</h2>
+        <div class="legend">
+          <span><i style="background:var(--honey)"></i>ফুলের সময়</span>
+          <span><i style="background:#CFC6B4"></i>ফুল কম, বাক্সে খাবার দিন</span>
+          <span><i style="box-shadow:inset 0 0 0 2px var(--ink)"></i>বাছাই করা মাস</span>
+        </div>
+      </div>
+      <div class="table-wrap"><div class="cal" id="cal"></div></div>
+      <div class="sub">মাসগুলো আনুমানিক; প্রতি বছর মাঠের অবস্থা অনুযায়ী হালনাগাদ হবে।</div>
+    </section>
+
+    <section class="card">
+      <h2 id="listTitle"></h2>
+      <div class="table-wrap">
+        <table style="min-width:520px">
+          <thead><tr><th>ফুল / ফসল</th><th>প্রধান এলাকা</th><th>সময়</th><th>অবস্থা</th></tr></thead>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const MONTHS = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+  const SHORT = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রি', 'মে', 'জুন', 'জুলা', 'আগ', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
+  let month = 11; // আজকের মাস (backend-এ MONTH(CURDATE()))
+
+  const sel = document.getElementById('month');
+  sel.innerHTML = MONTHS.map((m, i) => `<option value="${i + 1}">${m}${i + 1 === 11 ? ' (এই মাস)' : ''}</option>`).join('');
+  sel.value = month;
+
+  function span(f) { return SHORT[f.months[0] - 1] + ' – ' + SHORT[f.months[f.months.length - 1] - 1]; }
+
+  // কত মাস পরে ফুল আসবে
+  function monthsUntil(f, m) {
+    let best = 12;
+    f.months.forEach((x) => { const d = (x - m + 12) % 12; if (d < best) best = d; });
+    return best;
+  }
+
+  function render() {
+    // grid
+    const head = '<div class="cal-row"><span></span>' + SHORT.map((s, i) => `<span class="cal-head ${i + 1 === month ? 'now' : ''}">${s}</span>`).join('') + '</div>';
+    const rows = FLORA.map((f) => {
+      const cells = SHORT.map((_, i) => {
+        const on = f.months.includes(i + 1);
+        return `<div class="cell ${on ? (f.dearth ? 'dearth' : 'on') : ''} ${i + 1 === month ? 'now' : ''}" title="${f.name} · ${MONTHS[i]}"></div>`;
+      }).join('');
+      return `<div class="cal-row"><div class="cal-name"><b>${f.name}</b><span>${f.where}</span></div>${cells}</div>`;
+    }).join('');
+    document.getElementById('cal').innerHTML = head + rows;
+
+    // এই মাসে / আসছে
+    const real = FLORA.filter((f) => !f.dearth);
+    const blooming = real.filter((f) => f.months.includes(month));
+    const next = real.filter((f) => !f.months.includes(month)).sort((a, b) => monthsUntil(a, month) - monthsUntil(b, month))[0];
+    const dearth = FLORA.find((f) => f.dearth && f.months.includes(month));
+    const cards = [];
+    cards.push(blooming.length
+      ? `<div class="now-card hot"><div class="k">${MONTHS[month - 1]}-এ ফুল</div><b>${blooming.map((f) => f.name).join(', ')}</b><div class="s">${blooming[0].where}</div></div>`
+      : `<div class="now-card"><div class="k">${MONTHS[month - 1]}-এ ফুল</div><b>তেমন কোনো ফুল নেই</b><div class="s">${dearth ? 'বর্ষা — বাক্সে খাবার দিন' : 'মৌসুমের মাঝের বিরতি'}</div></div>`);
+    if (next) cards.push(`<div class="now-card"><div class="k">পরের মৌসুম · ~${bn(monthsUntil(next, month))} মাস পরে</div><b>${next.name}</b><div class="s">${next.where}</div></div>`);
+    cards.push(`<div class="now-card"><div class="k">আপনার খামার</div><b>${bn(FARMS.filter((f) => f.status === 'সক্রিয়').length)}টা খামার সরিষার জন্য প্রস্তুত</b><div class="s">উল্লাপাড়া ও বেলকুচি</div></div>`);
+    document.getElementById('nowCards').innerHTML = cards.join('');
+
+    // তালিকা
+    document.getElementById('listTitle').textContent = MONTHS[month - 1] + ' মাসের হিসেবে সব ফুল';
+    document.getElementById('list').innerHTML = FLORA.filter((f) => !f.dearth)
+      .sort((a, b) => monthsUntil(a, month) - monthsUntil(b, month))
+      .map((f) => {
+        const d = monthsUntil(f, month);
+        const status = d === 0 ? '<span class="pill green">এখন ফুটছে</span>' : `<span class="pill ${d <= 2 ? 'honey' : 'gray'}">${bn(d)} মাস পরে</span>`;
+        return `<tr><td><b>${f.name}</b></td><td>${f.where}</td><td>${span(f)}</td><td>${status}</td></tr>`;
+      }).join('');
+  }
+
+  sel.addEventListener('change', () => { month = Number(sel.value); render(); });
+  render();
+</script>
+</body>
+</html>

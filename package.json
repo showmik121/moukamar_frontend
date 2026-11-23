@@ -1,0 +1,45 @@
+{
+  "name": "moukhamar",
+  "version": "1.0.0",
+  "description": "মৌখামার — বাংলাদেশি মৌমাছি খামার ব্যবস্থাপনা ডেস্কটপ অ্যাপ",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start-with-backend": "cross-env MK_BACKEND_URL=http://127.0.0.1:8000 electron .",
+    "dev": "electron . --inspect",
+    "dist": "electron-builder",
+    "dist-win": "electron-builder --win"
+  },
+  "keywords": ["moukhamar", "beekeeping", "মৌমাছি", "বাংলাদেশ"],
+  "author": "মৌখামার টিম",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "cross-env": "^7.0.3"
+  },
+  "build": {
+    "appId": "bd.moukhamar.app",
+    "productName": "মৌখামার",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "মৌখামার"
+    },
+    "files": [
+      "**/*",
+      "!node_modules",
+      "!moukhamar-frontend",
+      "!**/node_modules/electron-builder/**"
+    ],
+    "extraResources": []
+  }
+}

@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>খামার ম্যাপ — মৌখামার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700&display=swap" rel="stylesheet">
+<!-- Open-source map stack: Leaflet (BSD-2) + Leaflet.markercluster (MIT) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" data-active="map"></aside>
+
+  <main class="main mapx-main">
+    <header class="mapx-head">
+      <div>
+        <h1>খামার ম্যাপ</h1>
+        <p class="sub" id="summary">লোড হচ্ছে…</p>
+      </div>
+      <div class="btns">
+        <a class="btn ghost" href="directory.html">তালিকা</a>
+        <button class="btn dark" id="openRegisterBtn" type="button">+ খামারি যোগ</button>
+      </div>
+    </header>
+
+    <div class="mapx-wrap">
+      <div id="map" aria-label="বাংলাদেশের মৌখামার ম্যাপ"></div>
+
+      <!-- search + filter (top-left) -->
+      <div class="mapx-panel">
+        <form class="mapx-search" id="searchForm" role="search" autocomplete="off">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" id="q" placeholder="খামারি, খামার বা স্থান খুঁজুন" aria-label="খুঁজুন">
+          <button type="button" class="mapx-icon-btn" id="filterToggle" aria-expanded="false" title="ফিল্টার">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+            <span class="mapx-dot" id="filterDot" hidden></span>
+          </button>
+        </form>
+        <div class="mapx-results" id="results" hidden></div>
+
+        <div class="mapx-filters" id="filters" hidden>
+          <label>জেলা<select id="fDistrict"></select></label>
+          <label>উপজেলা<select id="fUpazila"></select></label>
+          <label>ফুল<select id="fFlora"></select></label>
+          <div class="mapx-seg" id="fType" role="group" aria-label="খামারের ধরন">
+            <button type="button" data-v="" aria-pressed="true">সব</button>
+            <button type="button" data-v="স্থায়ী" aria-pressed="false">স্থায়ী</button>
+            <button type="button" data-v="ভ্রাম্যমাণ" aria-pressed="false">ভ্রাম্যমাণ</button>
+          </div>
+          <button type="button" class="mapx-link" id="resetFilters">ফিল্টার মুছুন</button>
+        </div>
+      </div>
+
+      <!-- map tools (right) -->
+      <div class="mapx-tools">
+        <button type="button" id="btnHome" title="পুরো বাংলাদেশ">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        </button>
+        <button type="button" id="btnLocate" title="আমার অবস্থান">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg>
+        </button>
+      </div>
+
+      <!-- legend (bottom-left) -->
+      <div class="mapx-legend">
+        <span><i class="lg-fixed"></i>স্থায়ী</span>
+        <span><i class="lg-mobile"></i>ভ্রাম্যমাণ</span>
+        <span id="pinCount" class="mapx-count"></span>
+      </div>
+
+      <!-- pick-location hint -->
+      <div class="mapx-pickbar" id="pickBar" hidden>
+        <span>ম্যাপে খামারের জায়গায় ক্লিক করুন</span>
+        <button type="button" class="mapx-link light" id="pickCancel">বাতিল</button>
+      </div>
+
+      <div class="mapx-offline" id="offline" hidden>
+        <b>ম্যাপ লোড করা যায়নি</b>
+        <span>ম্যাপের জন্য ইন্টারনেট সংযোগ দরকার। সংযোগ চালু করে পেজটি আবার খুলুন।</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- farmer side panel -->
+<div class="drawer-backdrop" id="drawerBackdrop">
+  <aside class="profile-drawer mapx-drawer" role="dialog" aria-labelledby="drawerTitle">
+    <div class="mapx-drawer-head">
+      <h2 id="drawerTitle">খামার</h2>
+      <button class="drawer-close" id="drawerCloseBtn" aria-label="বন্ধ করুন">&times;</button>
+    </div>
+    <div class="mapx-drawer-body" id="drawerBody"></div>
+  </aside>
+</div>
+
+<!-- new farmer -->
+<div class="modal-overlay" id="registerModal" role="dialog" aria-labelledby="modalTitle">
+  <div class="modal-dialog mapx-modal">
+    <div class="mapx-drawer-head">
+      <h2 id="modalTitle">নতুন খামারি</h2>
+      <button class="drawer-close" id="modalCloseBtn" type="button" aria-label="বন্ধ করুন">&times;</button>
+    </div>
+    <form id="registerForm">
+      <div class="modal-body">
+        <div class="mapx-grid">
+          <label class="field">খামারির নাম<input type="text" name="name" required placeholder="আব্দুল কাদের"></label>
+          <label class="field">খামারের নাম<input type="text" name="farm" required placeholder="সোনার বাংলা মৌখামার"></label>
+          <label class="field">মোবাইল<input type="tel" name="phone" required placeholder="017xxxxxxxx" pattern="01[3-9][0-9]{8}" title="১১ সংখ্যার মোবাইল নম্বর, যেমন 01712345678"></label>
+          <label class="field">ধরন
+            <select name="type"><option value="স্থায়ী">স্থায়ী</option><option value="ভ্রাম্যমাণ">ভ্রাম্যমাণ</option></select>
+          </label>
+          <label class="field">জেলা<select name="district" id="regDistrict" required></select></label>
+          <label class="field">উপজেলা<select name="upazila" id="regUpazila" required></select></label>
+          <label class="field">বাক্স সংখ্যা<input type="number" name="hives" min="1" max="1000" value="50" required></label>
+          <label class="field">অভিজ্ঞতা (বছর)<input type="number" name="exp" min="0" max="60" value="5"></label>
+        </div>
+        <label class="field">প্রধান ফুল<select name="flora" id="regFlora" required></select></label>
+
+        <div class="mapx-loc">
+          <div>
+            <b>অবস্থান</b>
+            <span id="regLocText">উপজেলার কেন্দ্র ব্যবহার হবে</span>
+          </div>
+          <button type="button" class="btn ghost sm" id="pickOnMap">ম্যাপে বাছুন</button>
+        </div>
+      </div>
+      <div class="modal-foot mapx-foot">
+        <button class="btn ghost" type="button" id="modalCancelBtn">বাতিল</button>
+        <button class="btn dark" type="submit">সংরক্ষণ</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="js/bd-locations.js"></script>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script src="js/bd-border.js"></script>
+<script>
+/* Leaflet + markercluster লোড: unpkg না পেলে jsDelivr থেকে চেষ্টা */
+(function loadMapLibs() {
+  const CDNS = ['https://unpkg.com/', 'https://cdn.jsdelivr.net/npm/'];
+  const libs = ['leaflet@1.9.4/dist/leaflet.js', 'leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js'];
+
+  function load(src) {
+    return new Promise((ok, fail) => {
+      const s = document.createElement('script');
+      s.src = src; s.crossOrigin = '';
+      s.onload = ok; s.onerror = () => { s.remove(); fail(); };
+      document.head.appendChild(s);
+    });
+  }
+  async function loadAny(path) {
+    for (const cdn of CDNS) {
+      try { await load(cdn + path); return; } catch (e) { /* পরেরটা চেষ্টা */ }
+    }
+    throw new Error('lib not loaded: ' + path);
+  }
+  (async () => {
+    try {
+      if (!window.L) await loadAny(libs[0]);
+      if (!L.markerClusterGroup) await loadAny(libs[1]).catch(() => {}); // cluster না পেলেও ম্যাপ চলবে
+      startMap();
+    } catch (e) {
+      document.getElementById('offline').hidden = false;
+      document.getElementById('summary').textContent = 'ম্যাপ লোড হয়নি';
+    }
+  })();
+})();
+
+function startMap() {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))];
+
+  /* ---------- map: শুধু বাংলাদেশ ---------- */
+  const BD_BOUNDS = L.latLngBounds([20.62, 87.95], [26.70, 92.72]);
+
+  const map = L.map('map', {
+    zoomControl: false, attributionControl: true, zoomSnap: 0.25,
+    maxBounds: BD_BOUNDS.pad(0.08), maxBoundsViscosity: 1.0, maxZoom: 18
+  });
+  map.fitBounds(BD_BOUNDS);
+  map.setMinZoom(map.getZoom());                // বাংলাদেশের চেয়ে বেশি zoom-out হবে না
+  map.on('resize', () => map.setMinZoom(map.getBoundsZoom(BD_BOUNDS)));
+
+  L.control.zoom({ position: 'topright', zoomInTitle: 'বড় করুন', zoomOutTitle: 'ছোট করুন' }).addTo(map);
+  L.control.scale({ position: 'bottomright', imperial: false }).addTo(map);
+  map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
+
+  const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+  const BASEMAPS = {
+    // Copernicus Sentinel-2 open satellite data (EOX cloudless mosaic) — কোনো API key লাগে না
+    'স্যাটেলাইট': L.tileLayer('https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg', {
+      attribution: '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> by EOX (Copernicus Sentinel data 2020)',
+      maxNativeZoom: 14, maxZoom: 18
+    }),
+    'স্যাটেলাইট — কাছ থেকে': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics', maxNativeZoom: 18, maxZoom: 18
+    }),
+    'রাস্তা (OSM)': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: OSM_ATTR, maxZoom: 19 }),
+    'ভূপ্রকৃতি': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: OSM_ATTR + ', SRTM | &copy; <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a>', subdomains: 'abc', maxNativeZoom: 17, maxZoom: 18
+    })
+  };
+  let baseName = 'স্যাটেলাইট';
+  try { const saved = localStorage.getItem('mk-basemap2'); if (BASEMAPS[saved]) baseName = saved; } catch (e) {}
+  BASEMAPS[baseName].addTo(map);
+  const layersCtl = L.control.layers(BASEMAPS, null, { position: 'topright' }).addTo(map);
+  map.getContainer().classList.toggle('sat', baseName.startsWith('স্যাটেলাইট'));
+  map.on('baselayerchange', (e) => {
+    map.getContainer().classList.toggle('sat', e.name.startsWith('স্যাটেলাইট'));
+    try { localStorage.setItem('mk-basemap2', e.name); } catch (err) {}
+  });
+
+  // Sentinel server সাড়া না দিলে নিজে থেকে অন্য satellite-এ চলে যায়
+  let s2errors = 0;
+  BASEMAPS['স্যাটেলাইট'].on('tileerror', () => {
+    if (++s2errors === 6 && map.hasLayer(BASEMAPS['স্যাটেলাইট'])) {
+      map.removeLayer(BASEMAPS['স্যাটেলাইট']);
+      BASEMAPS['স্যাটেলাইট — কাছ থেকে'].addTo(map);
+    }
+  });
+
+  // বাংলাদেশের বাইরের সব অংশ ঢেকে দেওয়া (mask) + সীমানা রেখা
+  map.createPane('mask');  map.getPane('mask').style.zIndex = 350;  map.getPane('mask').style.pointerEvents = 'none';
+  map.createPane('labels'); map.getPane('labels').style.zIndex = 450; map.getPane('labels').style.pointerEvents = 'none';
+  const bdRings = BD_BORDER.coordinates.map((poly) => poly[0].map(([x, y]) => [y, x]));
+  const world = [[-89, -179], [-89, 179], [89, 179], [89, -179]];
+  L.polygon([world, ...bdRings], {
+    pane: 'mask', stroke: false, fillColor: '#14120F', fillOpacity: 1, interactive: false
+  }).addTo(map);
+  L.polygon(bdRings, {
+    pane: 'mask', fill: false, color: '#F2B632', weight: 1.5, opacity: 0.9, interactive: false
+  }).addTo(map);
+
+  function inBangladesh(lat, lng) {
+    return bdRings.some((ring) => {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [yi, xi] = ring[i], [yj, xj] = ring[j];
+        if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    });
+  }
+
+  // জেলা ও উপজেলার নাম বাংলায় (satellite ছবির উপর)
+  const districtLabels = L.layerGroup(), upazilaLabels = L.layerGroup();
+  Object.entries(DISTRICT_COORDS).forEach(([d, D]) => {
+    L.marker([D.lat, D.lng], { pane: 'labels', interactive: false, keyboard: false,
+      icon: L.divIcon({ className: 'mapx-place district', html: `<span>${esc(d)}</span>`, iconSize: [0, 0] }) }).addTo(districtLabels);
+    Object.entries(D.upazilas).forEach(([u, ll]) => {
+      if (u === 'সদর') return;
+      L.marker(ll, { pane: 'labels', interactive: false, keyboard: false,
+        icon: L.divIcon({ className: 'mapx-place upazila', html: `<span>${esc(u)}</span>`, iconSize: [0, 0] }) }).addTo(upazilaLabels);
+    });
+  });
+  function syncLabels() {
+    const z = map.getZoom();
+    (z >= 7.5 ? districtLabels.addTo(map) : districtLabels.remove());
+    (z >= 10 ? upazilaLabels.addTo(map) : upazilaLabels.remove());
+  }
+  map.on('zoomend', syncLabels); syncLabels();
+
+  const cluster = L.markerClusterGroup
+    ? L.markerClusterGroup({
+        showCoverageOnHover: false, maxClusterRadius: 44, spiderfyOnMaxZoom: true,
+        iconCreateFunction: (c) => L.divIcon({
+          html: `<span>${bn(c.getChildCount())}</span>`, className: 'mapx-cluster', iconSize: [36, 36]
+        })
+      })
+    : L.layerGroup();
+  cluster.addTo(map);
+
+  /* ---------- filters ---------- */
+  const DISTRICTS = Object.keys(DISTRICT_COORDS);
+  const FLORA_NAMES = uniq([...FLORA.filter((f) => !f.dearth).map((f) => f.name), ...FARMERS.flatMap((f) => f.flora || [])]);
+  const opts = (list, all) => (all ? `<option value="">${all}</option>` : '') + list.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+
+  $('fDistrict').innerHTML = opts(DISTRICTS, 'সব জেলা');
+  $('fFlora').innerHTML = opts(FLORA_NAMES, 'সব ফুল');
+  $('regDistrict').innerHTML = opts(DISTRICTS);
+  $('regFlora').innerHTML = opts(FLORA_NAMES);
+
+  function fillUpazilas(dSel, uSel, all) {
+    const d = $(dSel).value;
+    const list = d && DISTRICT_COORDS[d] ? Object.keys(DISTRICT_COORDS[d].upazilas) : [];
+    $(uSel).innerHTML = opts(list, all);
+  }
+  fillUpazilas('fDistrict', 'fUpazila', 'সব উপজেলা');
+
+  const state = { type: '' };
+  $('filterToggle').addEventListener('click', () => {
+    const open = $('filters').hidden;
+    $('filters').hidden = !open;
+    $('filterToggle').setAttribute('aria-expanded', String(open));
+    $('results').hidden = true;
+  });
+  $('fDistrict').addEventListener('change', () => {
+    fillUpazilas('fDistrict', 'fUpazila', 'সব উপজেলা');
+    render({ fit: true });
+  });
+  $('fUpazila').addEventListener('change', () => render({ fit: true }));
+  $('fFlora').addEventListener('change', () => render({ fit: true }));
+  $('fType').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    $('fType').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    state.type = b.dataset.v;
+    render({ fit: true });
+  });
+  $('resetFilters').addEventListener('click', () => {
+    $('q').value = '';
+    $('fDistrict').value = '';
+    $('fFlora').value = '';
+    fillUpazilas('fDistrict', 'fUpazila', 'সব উপজেলা');
+    $('fType').querySelector('[data-v=""]').click();
+    goHome();
+  });
+
+  function filtered() {
+    const q = $('q').value.trim().toLowerCase();
+    const d = $('fDistrict').value, u = $('fUpazila').value, fl = $('fFlora').value;
+    return FARMERS.filter((f) => {
+      const matchQ = !q || 
+        (f.name && f.name.toLowerCase().includes(q)) || 
+        (f.farm && f.farm.toLowerCase().includes(q)) || 
+        (f.upazila && f.upazila.toLowerCase().includes(q)) || 
+        (f.district && f.district.toLowerCase().includes(q)) ||
+        (f.phone && f.phone.includes(q));
+      const matchD = !d || f.district === d;
+      const matchU = !u || f.upazila === u;
+      const matchFl = !fl || (f.flora && f.flora.some(item => item.includes(fl)));
+      const matchType = !state.type || f.type === state.type;
+      return matchQ && matchD && matchU && matchFl && matchType;
+    });
+  }
+
+  /* ---------- markers ---------- */
+  const markers = new Map();
+
+  function pin(f) {
+    const mobile = f.type === 'ভ্রাম্যমাণ';
+    const size = f.hives >= 100 ? 34 : f.hives >= 50 ? 30 : 26;
+    return L.divIcon({
+      className: 'mapx-pin-wrap',
+      html: `<div class="mapx-pin ${mobile ? 'mobile' : ''}" style="width:${size}px;height:${size}px">${bn(f.hives)}</div>`,
+      iconSize: [size, size], iconAnchor: [size / 2, size / 2], tooltipAnchor: [0, -size / 2]
+    });
+  }
+
+  function render({ fit = false } = {}) {
+    const list = filtered();
+    cluster.clearLayers();
+    markers.clear();
+
+    list.forEach((f) => {
+      if (typeof f.lat !== 'number' || typeof f.lng !== 'number') return;
+      const m = L.marker([f.lat, f.lng], { icon: pin(f), title: f.farm, keyboard: true, riseOnHover: true });
+      m.bindTooltip(`<b>${esc(f.farm)}</b><br>${esc(f.name)} · ${esc(f.upazila)}`, { direction: 'top', className: 'mapx-tip', offset: [0, -4] });
+      m.on('click', () => openFarmer(f));
+      markers.set(f.id, m);
+      cluster.addLayer(m);
+    });
+
+    const hives = list.reduce((s, f) => s + (f.hives || 0), 0);
+    const dists = uniq(list.map((f) => f.district)).length;
+    $('summary').textContent = `${bn(list.length)} জন খামারি · ${bn(hives)} টি বাক্স · ${bn(dists)} টি জেলা`;
+    $('pinCount').textContent = `${bn(list.length)} টি খামার`;
+
+    const active = $('fDistrict').value || $('fUpazila').value || $('fFlora').value || state.type;
+    $('filterDot').hidden = !active;
+
+    if (fit && list.length) {
+      const b = L.latLngBounds(list.filter((f) => f.lat).map((f) => [f.lat, f.lng]));
+      map.flyToBounds(b.pad(0.25), { maxZoom: 11, duration: 0.6 });
+    }
+    return list;
+  }
+
+  function goHome() { map.flyToBounds(BD_BOUNDS, { duration: 0.6 }); }
+  $('btnHome').addEventListener('click', goHome);
+
+  /* ---------- my location ---------- */
+  let meMarker = null;
+  $('btnLocate').addEventListener('click', () => {
+    if (!navigator.geolocation) return toast('এই ডিভাইসে অবস্থান পাওয়া যায় না');
+    toast('অবস্থান খোঁজা হচ্ছে…');
+    navigator.geolocation.getCurrentPosition((p) => {
+      const ll = [p.coords.latitude, p.coords.longitude];
+      if (!inBangladesh(ll[0], ll[1])) return toast('আপনার অবস্থান বাংলাদেশের বাইরে');
+      if (meMarker) meMarker.remove();
+      meMarker = L.circleMarker(ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#1F4E80', fillOpacity: 1 }).addTo(map)
+        .bindTooltip('আপনি এখানে', { direction: 'top' });
+      map.flyTo(ll, 13);
+    }, () => toast('অবস্থান পাওয়া যায়নি — অনুমতি দিন বা পরে চেষ্টা করুন'), { timeout: 10000 });
+  });
+
+  /* ---------- search: খামারি + স্থান (Nominatim, OpenStreetMap) ---------- */
+  let placeMarker = null;
+
+  function showResults() {
+    const q = $('q').value.trim();
+    const box = $('results');
+    if (!q) { box.hidden = true; return; }
+    const hits = filtered().slice(0, 5);
+    box.innerHTML =
+      hits.map((f) => `<button type="button" data-farmer="${f.id}"><b>${esc(f.farm)}</b><span>${esc(f.name)} · ${esc(f.upazila)}, ${esc(f.district)}</span></button>`).join('') +
+      `<button type="button" data-place="1" class="place"><b>“${esc(q)}” স্থানটি খুঁজুন</b><span>OpenStreetMap থেকে · Enter চাপুন</span></button>`;
+    box.hidden = false;
+    $('filters').hidden = true;
+  }
+
+  async function searchPlace(q) {
+    const box = $('results');
+    box.innerHTML = '<div class="mapx-res-note">খোঁজা হচ্ছে…</div>';
+    box.hidden = false;
+    try {
+      const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=bd&limit=5&accept-language=bn&q=' + encodeURIComponent(q);
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      if (!data.length) { box.innerHTML = '<div class="mapx-res-note">কোনো স্থান পাওয়া যায়নি</div>'; return; }
+      box.innerHTML = data.map((p, i) => {
+        const parts = p.display_name.split(',').map((s) => s.trim());
+        return `<button type="button" data-geo="${i}"><b>${esc(parts[0])}</b><span>${esc(parts.slice(1, 4).join(', '))}</span></button>`;
+      }).join('');
+      box.querySelectorAll('[data-geo]').forEach((b) => b.addEventListener('click', () => {
+        const p = data[Number(b.dataset.geo)];
+        const ll = [Number(p.lat), Number(p.lon)];
+        if (placeMarker) placeMarker.remove();
+        placeMarker = L.circleMarker(ll, { radius: 7, color: '#1F1B16', weight: 2, fillColor: '#fff', fillOpacity: 1 })
+          .addTo(map).bindTooltip(esc(p.display_name.split(',')[0]), { permanent: true, direction: 'top', className: 'mapx-tip' });
+        if (p.boundingbox) {
+          const [s, n, w, e] = p.boundingbox.map(Number);
+          map.flyToBounds([[s, w], [n, e]], { maxZoom: 14, duration: 0.6 });
+        } else map.flyTo(ll, 13);
+        box.hidden = true;
+      }));
+    } catch (e) {
+      box.innerHTML = '<div class="mapx-res-note">স্থান খোঁজা যায়নি — ইন্টারনেট সংযোগ দেখুন</div>';
+    }
+  }
+
+  $('q').addEventListener('input', () => { render(); showResults(); });
+  $('q').addEventListener('focus', showResults);
+  $('searchForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = $('q').value.trim();
+    if (q) searchPlace(q);
+  });
+  $('results').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.place) return searchPlace($('q').value.trim());
+    if (b.dataset.farmer) {
+      const f = FARMERS.find((x) => x.id === Number(b.dataset.farmer));
+      if (f) focusFarmer(f);
+      $('results').hidden = true;
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.mapx-panel')) $('results').hidden = true;
+  });
+
+  function focusFarmer(f) {
+    map.flyTo([f.lat, f.lng], 12, { duration: 0.6 });
+    openFarmer(f);
+  }
+
+  /* ---------- farmer panel ---------- */
+  function openFarmer(f) {
+    const honey = f.honeyProduced || Math.round(f.hives * 12);
+    const active = f.activeBoxes || Math.round(f.hives * 0.9);
+    const risk = OUTBREAKS.find((o) => o.where.includes(f.upazila));
+    const near = FARMERS.filter((x) => x.id !== f.id && x.lat && distKm(f, x) <= 15).length;
+    const phone = String(f.phone || '').replace(/[^0-9+]/g, '');
+
+    $('drawerTitle').textContent = f.farm;
+    $('drawerBody').innerHTML = `
+      <div class="mapx-who">
+        <div class="avatar">${esc(f.name.charAt(0))}</div>
+        <div>
+          <b>${esc(f.name)}</b>
+          <span>${esc(f.upazila)}, ${esc(f.district)} · ${esc(f.type)}</span>
+        </div>
+      </div>
+
+      <div class="mapx-kv">
+        <div><span>বাক্স</span><b>${bn(f.hives)}</b></div>
+        <div><span>সক্রিয় কলোনি</span><b>${bn(active)}</b></div>
+        <div><span>এই মৌসুমে মধু</span><b>${bn(honey)} কেজি</b></div>
+        <div><span>অভিজ্ঞতা</span><b>${bn(f.exp || 0)} বছর</b></div>
+      </div>
+
+      <div class="mapx-sec">
+        <span class="mapx-label">ফুলের উৎস</span>
+        <div class="chips">${(f.flora || []).map((x) => `<span class="pill gray">${esc(x)}</span>`).join('')}</div>
+      </div>
+
+      <div class="mapx-sec">
+        <span class="mapx-label">এলাকা</span>
+        ${risk
+          ? `<p class="mapx-flag red">${esc(f.upazila)}-এ ${esc(risk.disease)} পাওয়া গেছে (${bn(risk.farms)}টি খামার)। <a href="alerts.html">সতর্কতা দেখুন</a></p>`
+          : `<p class="mapx-flag">এই এলাকায় এখন কোনো রোগের সতর্কতা নেই।</p>`}
+        <p class="mapx-muted">১৫ কিমি-র মধ্যে আরও ${bn(near)} টি খামার · ${bn(f.lat.toFixed(4))}, ${bn(f.lng.toFixed(4))}</p>
+      </div>
+
+      <div class="mapx-actions">
+        ${phone ? `<a class="btn dark block" href="tel:${esc(phone)}">ফোন করুন · ${esc(bn(f.phone))}</a>` : ''}
+        <a class="btn ghost block" target="_blank" rel="noopener" href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%3B${f.lat}%2C${f.lng}">পথ দেখুন (OpenStreetMap)</a>
+        <a class="btn ghost block" href="directory.html">খামারি তালিকায় দেখুন</a>
+      </div>`;
+    $('drawerBackdrop').classList.add('open');
+
+    const m = markers.get(f.id);
+    document.querySelectorAll('.mapx-pin.active').forEach((el) => el.classList.remove('active'));
+    if (m && m.getElement()) m.getElement().querySelector('.mapx-pin').classList.add('active');
+  }
+
+  function distKm(a, b) {
+    const R = 6371, rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function closeFarmer() {
+    $('drawerBackdrop').classList.remove('open');
+    document.querySelectorAll('.mapx-pin.active').forEach((el) => el.classList.remove('active'));
+  }
+  $('drawerCloseBtn').addEventListener('click', closeFarmer);
+  $('drawerBackdrop').addEventListener('click', (e) => { if (e.target === $('drawerBackdrop')) closeFarmer(); });
+
+  /* ---------- new farmer + pick location ---------- */
+  let picked = null;        // [lat, lng] — ম্যাপে বাছাই করা জায়গা
+  let pickMarker = null;
+
+  function openRegister() {
+    if (!$('regUpazila').options.length) fillUpazilas('regDistrict', 'regUpazila');
+    $('registerModal').classList.add('open');
+  }
+  function closeRegister() { $('registerModal').classList.remove('open'); }
+  $('regDistrict').addEventListener('change', () => fillUpazilas('regDistrict', 'regUpazila'));
+  $('openRegisterBtn').addEventListener('click', openRegister);
+  $('modalCloseBtn').addEventListener('click', closeRegister);
+  $('modalCancelBtn').addEventListener('click', closeRegister);
+
+  $('pickOnMap').addEventListener('click', () => {
+    closeRegister();
+    $('pickBar').hidden = false;
+    map.getContainer().classList.add('picking');
+  });
+  function endPick() {
+    $('pickBar').hidden = true;
+    map.getContainer().classList.remove('picking');
+  }
+  $('pickCancel').addEventListener('click', () => { endPick(); openRegister(); });
+
+  map.on('click', async (e) => {
+    if ($('pickBar').hidden) return;
+    if (!inBangladesh(e.latlng.lat, e.latlng.lng)) { toast('বাংলাদেশের ভেতরে একটা জায়গা বেছে নিন'); return; }
+    endPick();
+    picked = [e.latlng.lat, e.latlng.lng];
+    if (pickMarker) pickMarker.remove();
+    pickMarker = L.circleMarker(picked, { radius: 8, color: '#1F1B16', weight: 3, fillColor: '#F2B632', fillOpacity: 1 }).addTo(map);
+    $('regLocText').textContent = `${bn(picked[0].toFixed(4))}, ${bn(picked[1].toFixed(4))}`;
+    openRegister();
+    // OpenStreetMap থেকে জায়গার নাম (reverse geocoding)
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=bn&lat=${picked[0]}&lon=${picked[1]}`);
+      const d = await r.json();
+      if (d && d.display_name) {
+        $('regLocText').textContent = d.display_name.split(',').slice(0, 3).join(',') + ` (${bn(picked[0].toFixed(3))}, ${bn(picked[1].toFixed(3))})`;
+        matchDistrict(d.address || {});
+      }
+    } catch (err) { /* নাম না পেলেও coordinate থাকছে */ }
+  });
+
+  // reverse geocode-এর জেলা/উপজেলা আমাদের তালিকায় থাকলে নিজে থেকে বেছে দেয়
+  function matchDistrict(a) {
+    const text = [a.state_district, a.county, a.city, a.town, a.suburb, a.village].filter(Boolean).join(' ');
+    const d = DISTRICTS.find((x) => text.includes(x));
+    if (!d) return;
+    $('regDistrict').value = d;
+    fillUpazilas('regDistrict', 'regUpazila');
+    const u = Object.keys(DISTRICT_COORDS[d].upazilas).find((x) => text.includes(x));
+    if (u) $('regUpazila').value = u;
+  }
+
+  $('registerForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const district = fd.get('district'), upazila = fd.get('upazila');
+
+    let lat, lng;
+    if (picked) [lat, lng] = picked;
+    else {
+      const D = DISTRICT_COORDS[district];
+      [lat, lng] = (D && D.upazilas[upazila]) || (D ? [D.lat, D.lng] : [23.75, 90.3]);
+      lat += (Math.random() - 0.5) * 0.015;   // একই উপজেলার pin যেন একটার উপর আরেকটা না পড়ে
+      lng += (Math.random() - 0.5) * 0.015;
+    }
+
+    const hives = Number(fd.get('hives')) || 40;
+    const saved = saveRegisteredFarmer({
+      name: fd.get('name').trim(), farm: fd.get('farm').trim(), phone: fd.get('phone').trim(),
+      district, upazila, type: fd.get('type'), hives, flora: [fd.get('flora')],
+      exp: Number(fd.get('exp')) || 0, lat, lng,
+      honeyProduced: 0, activeBoxes: hives, rating: null,
+      regDate: new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })
+    });
+    FARMERS = getStoredFarmers();
+
+    closeRegister();
+    e.target.reset();
+    picked = null;
+    if (pickMarker) { pickMarker.remove(); pickMarker = null; }
+    $('regLocText').textContent = 'উপজেলার কেন্দ্র ব্যবহার হবে';
+    fillUpazilas('regDistrict', 'regUpazila');
+
+    toast(`${saved.name} যুক্ত হয়েছেন`);
+    render();
+    focusFarmer(saved);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('pickBar').hidden) { endPick(); openRegister(); return; }
+    closeRegister(); closeFarmer(); $('results').hidden = true; $('filters').hidden = true;
+  });
+
+  /* ---------- start ---------- */
+  function injectCurrentSessionFarmer() {
+    const me = (typeof Session !== 'undefined' && Session.get()) ? Session.get() : null;
+    if (me && me.role !== 'cropper') {
+      const exists = FARMERS.find(f => (me.phone && f.phone === me.phone) || (me.farm && f.farm === me.farm));
+      if (!exists && me.district) {
+        const coord = typeof getGeoCoord === 'function' ? getGeoCoord(me.district, me.upazila) : [24.0, 89.8];
+        const newEntry = {
+          id: FARMERS.length + 100,
+          name: me.name || 'খামারি',
+          phone: me.phone || '',
+          farm: me.farm || (me.name + '-এর খামার'),
+          district: me.district,
+          upazila: me.upazila || 'সদর',
+          type: me.type || 'স্থায়ী',
+          hives: 0,
+          flora: ['সরিষা', 'মিশ্র ফুল'],
+          exp: me.exp || 1,
+          lat: coord[0],
+          lng: coord[1],
+          honeyProduced: 0,
+          activeBoxes: 0,
+          rating: 5.0,
+          regDate: 'এইমাত্র'
+        };
+        FARMERS.unshift(newEntry);
+      }
+    }
+  }
+
+  injectCurrentSessionFarmer();
+  render();
+
+  async function syncBackendFarmers() {
+    try {
+      const resp = await fetch('http://127.0.0.1:8000/api/map-farmers/');
+      if (resp.ok) {
+        const backendList = await resp.json();
+        if (Array.isArray(backendList) && backendList.length > 0) {
+          backendList.forEach((bf) => {
+            if (!bf.lat || !bf.lng) {
+              const coord = typeof getGeoCoord === 'function' ? getGeoCoord(bf.district, bf.upazila) : [24.0, 89.8];
+              bf.lat = coord[0];
+              bf.lng = coord[1];
+            }
+            const idx = FARMERS.findIndex(f => (bf.phone && f.phone === bf.phone) || (f.id === bf.id));
+            if (idx >= 0) {
+              FARMERS[idx] = { ...FARMERS[idx], ...bf };
+            } else {
+              FARMERS.unshift(bf);
+            }
+          });
+          render();
+        }
+      }
+    } catch (err) {
+      console.log('Backend map sync note:', err);
+    }
+  }
+
+  syncBackendFarmers();
+  const target = Number(new URLSearchParams(location.search).get('farmer'));
+  const t = target && FARMERS.find((x) => x.id === target);
+  if (t && t.lat) setTimeout(() => focusFarmer(t), 300);
+  // sidebar/লেআউট বদলালে ম্যাপের মাপ ঠিক রাখা
+  new ResizeObserver(() => map.invalidateSize()).observe($('map'));
+}
+</script>
+</body>
+</html>

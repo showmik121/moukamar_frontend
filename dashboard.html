@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ড্যাশবোর্ড — মৌখামার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" data-active="dashboard"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <div class="sub">সোমবার, ২ নভেম্বর ২০২৬ · সরিষা মৌসুম শুরু হচ্ছে</div>
+        <h1>স্বাগতম, রহিম ভাই</h1>
+      </div>
+      <div class="btns">
+        <a class="btn" href="community.html">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>
+          কমিউনিটি ও সম্পদ
+        </a>
+        <a class="btn" href="map.html">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>
+          খামার ম্যাপ
+        </a>
+        <a class="btn" href="hive.html?code=MK-014#harvest">মধু সংগ্রহ লিখুন</a>
+        <a class="btn primary" href="hive.html?code=MK-014#inspect">+ নতুন পরিদর্শন</a>
+      </div>
+    </header>
+
+    <section class="stats" id="stats" aria-label="সারাংশ"></section>
+
+    <!-- Map Banner Card -->
+    <div class="notice honey" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:16px 20px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="font-size:28px">🗺️</span>
+        <div>
+          <b style="font-size:16px">বাংলাদেশ খামার ম্যাপ যুক্ত হয়েছে!</b>
+          <div class="sub" style="color:#5E3800">সারা দেশের নিবন্ধিত খামার, মৌমাছির বাক্স এবং খামারিদের প্রোফাইল ইন্টারেক্টিভ ম্যাপে দেখুন।</div>
+        </div>
+      </div>
+      <a class="btn dark" href="map.html" style="font-size:14px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>
+        ম্যাপ খুলুন
+      </a>
+    </div>
+
+    <div class="row">
+      <section class="card grow-3">
+        <div class="card-head">
+          <h2>মাসভিত্তিক মধু উৎপাদন (কেজি)</h2>
+          <span class="sub">গত মৌসুম, ডিসেম্বর ২০২৫ – মে ২০২৬</span>
+        </div>
+        <div class="bars" id="bars" role="img" aria-label="মাসভিত্তিক মধু উৎপাদন"></div>
+        <div class="bar-labels" id="barLabels"></div>
+      </section>
+
+      <section class="card grow-2">
+        <div class="card-head">
+          <h2>সর্বশেষ সতর্কতা</h2>
+          <a href="alerts.html" style="font-size:14px;font-weight:600">সব দেখুন</a>
+        </div>
+        <div id="alerts" style="display:flex;flex-direction:column;gap:10px"></div>
+      </section>
+    </div>
+
+    <div class="row">
+      <section class="card grow-3">
+        <div class="card-head">
+          <h2>আমার খামার</h2>
+          <a href="hives.html" style="font-size:14px;font-weight:600">সব বাক্স দেখুন</a>
+        </div>
+        <div class="table-wrap">
+          <table style="min-width:520px">
+            <thead><tr><th>খামার</th><th>এলাকা</th><th>ফুল</th><th class="num">বাক্স</th><th class="num">রানীহীন</th><th>অবস্থা</th></tr></thead>
+            <tbody id="farms"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card grow-2">
+        <h2>আজকের কাজ</h2>
+        <div>
+          <label class="check" style="border-bottom:1px solid var(--line-2)"><input type="checkbox"><span style="flex:1">MK-014 বাক্সে নতুন রানী বসানো</span><span class="sub">বেলকুচি</span></label>
+          <label class="check" style="border-bottom:1px solid var(--line-2)"><input type="checkbox"><span style="flex:1">৫টা বাক্সে পরিদর্শন বাকি</span><span class="sub">তিন খামার</span></label>
+          <label class="check" style="border-bottom:1px solid var(--line-2)"><input type="checkbox"><span style="flex:1">MK-003-এ ভ্যারোয়া পরীক্ষা</span><span class="sub">চর ঘাটিনা</span></label>
+          <label class="check"><input type="checkbox"><span style="flex:1">MK-015 থেকে মধু সংগ্রহ</span><span class="sub">বেলকুচি</span></label>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script>
+  // ব্যবহারকারীর প্রোফাইল অনুযায়ী নাম ও স্বাগতম বার্তা
+  const user = (typeof Session !== 'undefined' && Session.get()) ? Session.get() : null;
+  const isDemo = !user || user.phone === '01712345678' || user.phone === '01812345678';
+  
+  if (user) {
+    const greetingName = user.name ? user.name : 'খামারি ভাই';
+    const headH1 = document.querySelector('.page-head h1');
+    if (headH1) headH1.textContent = `স্বাগতম, ${greetingName}`;
+    
+    // সাবটাইটেল
+    const headSub = document.querySelector('.page-head .sub');
+    if (headSub && user.district) {
+      headSub.textContent = `${user.upazila ? user.upazila + ', ' : ''}${user.district} · মৌমাছি খামার ব্যবস্থাপনা`;
+    }
+  }
+
+  // ব্যবহারকারী নিজস্ব খামার (নতুন অ্যাকাউন্ট হলে তার নিজস্ব খামার, ডেমো অ্যাকাউন্ট হলে ডেমো খামার)
+  let myFarms = [];
+  if (isDemo) {
+    myFarms = FARMS;
+  } else {
+    // নতুন অ্যাকাউন্টের খামার
+    const userFarms = FARMS.filter(f => f.ownerPhone === user.phone || f.name === user.farm);
+    if (userFarms.length === 0 && user.farm) {
+      const newFarm = {
+        id: FARMS.length + 1,
+        name: user.farm,
+        upazila: user.upazila || 'সদর',
+        district: user.district || 'সিরাজগঞ্জ',
+        flora: 'সরিষা ও অন্যান্য',
+        status: 'সক্রিয়',
+        since: 'এইমাত্র',
+        ownerPhone: user.phone
+      };
+      FARMS.push(newFarm);
+      if (typeof Store !== 'undefined') Store.save();
+      myFarms = [newFarm];
+    } else {
+      myFarms = userFarms;
+    }
+  }
+
+  const myFarmIds = myFarms.map(f => f.id);
+  const myHives = isDemo ? HIVES : HIVES.filter(h => myFarmIds.includes(h.farm));
+  const queenless = myHives.filter((h) => h.queen === 'নেই').length;
+  const overdue = myHives.filter((h) => h.last > 14).length;
+
+  const stats = [
+    { k: 'মোট খামার', v: bn(myFarms.length), s: bn(myFarms.filter((f) => f.status === 'সক্রিয়').length) + 'টা সক্রিয়' },
+    { k: 'মোট বাক্স', v: bn(myHives.length), s: bn(myHives.length - queenless) + 'টায় রানী আছে' },
+    { k: 'রানীহীন বাক্স', v: bn(queenless), s: queenless ? 'নতুন রানী দরকার' : 'সব বাক্সে রানী আছে', cls: queenless ? 'red' : '' },
+    { k: 'এই মৌসুমে মধু', v: isDemo ? bn(86) + ' কেজি' : bn(0) + ' কেজি', s: isDemo ? 'গত মৌসুমে ' + bn(530) + ' কেজি' : 'নতুন খামার', cls: 'honey' },
+    { k: 'বাকি পরিদর্শন', v: bn(overdue), s: overdue ? '১৪ দিনের বেশি' : 'নিয়মিত হালনাগাদ' },
+    { k: 'নতুন সতর্কতা', v: bn(NOTIFICATIONS.filter((n) => n.unread).length), s: 'স্প্রে ও রোগ', cls: 'red' }
+  ];
+  document.getElementById('stats').innerHTML = stats.map((s) =>
+    `<div class="stat"><div class="k">${s.k}</div><div class="v ${s.cls || ''}">${s.v}</div><div class="s">${s.s}</div></div>`).join('');
+
+  // মাসভিত্তিক মধু
+  const months = isDemo 
+    ? [['ডিসে', 'সরিষা', 60], ['জানু', 'সরিষা', 140], ['ফেব্রু', 'কালোজিরা', 110], ['মার্চ', 'লিচু', 90], ['এপ্রি', 'লিচু', 100], ['মে', 'সুন্দরবন', 30]]
+    : [['ডিসে', 'সরিষা', 0], ['জানু', 'সরিষা', 0], ['ফেব্রু', 'কালোজিরা', 0], ['মার্চ', 'লিচু', 0], ['এপ্রি', 'লিচু', 0], ['মে', 'মধু', 0]];
+  const max = Math.max(...months.map((m) => m[2])) || 1;
+  document.getElementById('bars').innerHTML = months.map((m) =>
+    `<div class="bar"><b>${bn(m[2])}</b><i style="height:${m[2] ? Math.round(m[2] / max * 170) : 4}px"></i></div>`).join('');
+  document.getElementById('barLabels').innerHTML = months.map((m) => `<span>${m[0]}<br>${m[1]}</span>`).join('');
+
+  // সতর্কতা
+  document.getElementById('alerts').innerHTML = NOTIFICATIONS.slice(0, 3).map((n) =>
+    `<div class="alert-item"><span class="dot ${n.kind === 'spray' ? 'red' : 'honey'}"></span><div><b>${n.title}</b><span>${n.body}</span></div></div>`).join('');
+
+  // খামারের তালিকা
+  if (myFarms.length > 0) {
+    document.getElementById('farms').innerHTML = myFarms.map((f) => {
+      const mine = myHives.filter((h) => h.farm === f.id);
+      const ql = mine.filter((h) => h.queen === 'নেই').length;
+      const pill = f.status === 'সক্রিয়' ? 'green' : 'gray';
+      return `<tr class="link-row" onclick="location.href='hives.html?farm=${f.id}'">
+        <td><b>${f.name}</b></td><td>${f.upazila}, ${f.district}</td><td>${f.flora}</td>
+        <td class="num">${bn(mine.length)}</td><td class="num">${bn(ql)}</td><td><span class="pill ${pill}">${f.status}</span></td></tr>`;
+    }).join('');
+  } else {
+    document.getElementById('farms').innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center;padding:16px">এখনো কোনো খামার তৈরি করা হয়নি। উপরে "নতুন খামার" যোগ করুন।</td></tr>';
+  }
+</script>
+</body>
+</html>

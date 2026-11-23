@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>অ্যাডমিন প্যানেল — মৌখামার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .admin-header {
+    background: #1F1B16;
+    color: #F5F3EC;
+    padding: 16px 24px;
+    border-radius: var(--radius);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .admin-tag {
+    background: var(--honey);
+    color: var(--ink);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .admin-box {
+    background: #FFFFFF;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .admin-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  }
+  .admin-search {
+    width: 100%;
+    max-width: 360px;
+    min-height: 42px;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    padding: 0 14px;
+    font-size: 14px;
+  }
+  .action-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .action-btn.del { background: var(--red-bg); color: var(--red-ink); border-color: #F1BFB6; }
+  .action-btn.del:hover { background: #F5CECB; }
+  .action-btn.view { background: var(--honey-bg); color: var(--honey-ink); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" data-active="admin"></aside>
+
+  <main class="main">
+    <div class="admin-header">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <span class="admin-tag">সুপার অ্যাডমিন</span>
+          <span class="sub" style="color:#B8AFA2" id="adminInfoLabel">সিস্টেম ব্যবস্থাপনা নিয়ন্ত্রণ কক্ষ</span>
+        </div>
+        <h1 style="font-family:var(--display);font-size:26px;color:#F5F3EC;margin:0">মৌখামার কেন্দ্রীয় ড্যাশবোর্ড</h1>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <a href="dashboard.html" class="btn" style="background:#2B2620;color:#F5F3EC;border-color:#3E372E">ইউজার মোডে যান</a>
+        <a href="http://127.0.0.1:8000/admin/" target="_blank" class="btn primary">Django Admin ওপেন করুন ↗</a>
+        <button type="button" class="btn" onclick="handleLogout(event)" style="background:#3A1F1D;color:#FFA4A2;border-color:#5A2B28">লগ আউট</button>
+      </div>
+    </div>
+
+    <!-- Overall Statistics -->
+    <section class="stats" id="adminStats"></section>
+
+    <!-- Management Sections -->
+    <div class="row">
+      <!-- Users Table Card -->
+      <section class="card grow-3">
+        <div class="card-head">
+          <div>
+            <h2>নিবন্ধিত সকল ব্যবহারকারী</h2>
+            <span class="sub" id="userCountSub">লোড হচ্ছে...</span>
+          </div>
+          <input type="search" id="userSearch" class="admin-search" placeholder="নাম, ফোন বা জেলা দিয়ে খুঁজুন...">
+        </div>
+        <div class="table-wrap">
+          <table style="min-width:620px">
+            <thead>
+              <tr>
+                <th>নাম ও ভূমিকা</th>
+                <th>ফোন নম্বর</th>
+                <th>জেলা ও উপজেলা</th>
+                <th>খামার / ফসল</th>
+                <th class="num">বাক্স</th>
+                <th style="text-align:center">অ্যাকশন</th>
+              </tr>
+            </thead>
+            <tbody id="userTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- System Quick Controls -->
+      <section class="card grow-1">
+        <h2>সিস্টেম নিয়ন্ত্রণ</h2>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="notice honey">
+            <b>ডাটাবেজ স্ট্যাটাস:</b> সচল (MySQL + Django REST)
+          </div>
+          <div class="notice green">
+            <b>সার্ভার সংযোগ:</b> http://127.0.0.1:8000
+          </div>
+          <hr style="border:0;border-top:1px solid var(--line-2);margin:4px 0">
+          <button class="btn block" id="refreshDataBtn" type="button">🔄 ডাটা রিফ্রেশ করুন</button>
+          <a class="btn dark block" href="map.html">🗺️ খামার ম্যাপ পরীক্ষা করুন</a>
+          <a class="btn block" href="community.html">💬 কমিউনিটি পোস্ট মনিটর</a>
+        </div>
+      </section>
+    </div>
+
+    <!-- Apiaries & Hives Summary -->
+    <div class="row">
+      <section class="card grow-2">
+        <div class="card-head">
+          <h2>সিস্টেমের সক্রিয় খামারসমূহ</h2>
+          <a href="hives.html" style="font-size:14px;font-weight:600">সব দেখুন</a>
+        </div>
+        <div class="table-wrap">
+          <table style="min-width:540px">
+            <thead>
+              <tr>
+                <th>খামারের নাম</th>
+                <th>মালিক</th>
+                <th>অবস্থান</th>
+                <th>অবস্থা</th>
+              </tr>
+            </thead>
+            <tbody id="farmTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card grow-2">
+        <div class="card-head">
+          <h2>সর্বশেষ সতর্কতা ও স্প্রে নোটিশ</h2>
+          <a href="alerts.html" style="font-size:14px;font-weight:600">সতর্কতা তালিকা</a>
+        </div>
+        <div id="alertListBody" style="display:flex;flex-direction:column;gap:10px"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="js/bd-locations.js"></script>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script>
+  // অ্যাডমিন অথেন্টিকেশন গার্ড
+  const curUser = (typeof Session !== 'undefined') ? Session.get() : null;
+  if (!curUser || (curUser.role !== 'admin' && !curUser.is_staff && !curUser.is_superuser)) {
+    location.replace('index.html?next=admin.html');
+  }
+
+  let allUsers = [];
+
+  if (curUser) {
+    const adminLabel = document.getElementById('adminInfoLabel');
+    if (adminLabel) {
+      adminLabel.textContent = `${curUser.name} · ${curUser.email || curUser.phone || 'অ্যাডমিন'} (আইডি: #${curUser.id || 1})`;
+    }
+  }
+
+  async function loadAdminData() {
+    let usersList = [];
+    
+    // ১. ব্যাকএন্ড থেকে নিবন্ধিত ইউজার ফেচ করা
+    try {
+      const resp = await fetch('http://127.0.0.1:8000/api/auth/users/');
+      if (resp.ok) {
+        const bUsers = await resp.json();
+        if (Array.isArray(bUsers) && bUsers.length > 0) {
+          bUsers.forEach(u => {
+            usersList.push({
+              name: u.name,
+              phone: u.phone,
+              email: u.email,
+              role: u.role,
+              district: u.district,
+              upazila: u.upazila,
+              farm: u.farm_name || u.main_crop,
+              hives: u.experience ? u.experience * 3 : 0
+            });
+          });
+        }
+      }
+    } catch (e) {
+      console.log('Backend user list offline');
+    }
+
+    // ২. ম্যাপ ও খামারি ডেটা মার্জ করা
+    try {
+      const resp2 = await fetch('http://127.0.0.1:8000/api/map-farmers/');
+      if (resp2.ok) {
+        const mUsers = await resp2.json();
+        if (Array.isArray(mUsers)) {
+          mUsers.forEach(m => {
+            if (!usersList.some(u => (u.phone && u.phone === m.phone) || (u.name && u.name === m.name))) {
+              usersList.push(m);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // ২. লোকাল মেমোরি ডেটা মার্জ করা
+    if (typeof FARMERS !== 'undefined') {
+      FARMERS.forEach(f => {
+        if (!usersList.some(u => u.phone === f.phone)) {
+          usersList.push({
+            name: f.name,
+            phone: f.phone,
+            role: 'farmer',
+            district: f.district,
+            upazila: f.upazila,
+            farm: f.farm,
+            hives: f.hives || 0
+          });
+        }
+      });
+    }
+
+    // ৩. স্টোর থেকে নিবন্ধিত ইউজার
+    if (typeof USERS !== 'undefined') {
+      USERS.forEach(u => {
+        if (!usersList.some(item => item.phone === u.phone)) {
+          usersList.push(u);
+        }
+      });
+    }
+
+    allUsers = usersList;
+    renderStats();
+    renderUserTable();
+    renderFarms();
+    renderAlerts();
+  }
+
+  function renderStats() {
+    const totalUsers = allUsers.length;
+    const farmersCount = allUsers.filter(u => u.role !== 'cropper').length;
+    const croppersCount = allUsers.filter(u => u.role === 'cropper').length;
+    const totalHives = allUsers.reduce((sum, u) => sum + (Number(u.hives) || 0), 0);
+    const districts = [...new Set(allUsers.map(u => u.district).filter(Boolean))].length;
+
+    const stats = [
+      { k: 'মোট ব্যবহারকারী', v: bn(totalUsers), s: `${bn(farmersCount)} খামারি · ${bn(croppersCount)} কৃষক` },
+      { k: 'নিবন্ধিত খামার', v: bn(FARMS.length), s: 'সারা দেশে পরিচালিত' },
+      { k: 'মোট মৌমাছির বাক্স', v: bn(totalHives || HIVES.length), s: 'সক্রিয় কলোনি', cls: 'honey' },
+      { k: 'আওতাভুক্ত জেলা', v: bn(districts || 16) + ' টি', s: '৬৪ জেলার নেটওয়ার্ক' },
+      { k: 'সতর্কতা ও স্প্রে', v: bn(NOTIFICATIONS.length), s: 'নিরাপত্তা অ্যালার্ট', cls: 'red' },
+      { k: 'কমিউনিটি পোস্ট', v: bn(typeof DEFAULT_COMMUNITY_POSTS !== 'undefined' ? DEFAULT_COMMUNITY_POSTS.length : 5), s: 'জ্ঞান ও সম্পদ বিনিময়' }
+    ];
+
+    document.getElementById('adminStats').innerHTML = stats.map(s => `
+      <div class="stat">
+        <div class="k">${s.k}</div>
+        <div class="v ${s.cls || ''}">${s.v}</div>
+        <div class="s">${s.s}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderUserTable(query = '') {
+    const q = query.trim().toLowerCase();
+    const filtered = allUsers.filter(u => {
+      return !q || 
+        (u.name && u.name.toLowerCase().includes(q)) ||
+        (u.phone && u.phone.includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.district && u.district.toLowerCase().includes(q)) ||
+        (u.upazila && u.upazila.toLowerCase().includes(q)) ||
+        (u.farm && u.farm.toLowerCase().includes(q));
+    });
+
+    document.getElementById('userCountSub').textContent = `মোট ${bn(filtered.length)} জন ব্যবহারকারী প্রদর্শিত হচ্ছে`;
+
+    if (filtered.length === 0) {
+      document.getElementById('userTableBody').innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center;padding:16px">কোনো ব্যবহারকারী পাওয়া যায়নি</td></tr>';
+      return;
+    }
+
+    document.getElementById('userTableBody').innerHTML = filtered.map((u, i) => {
+      const isAdmin = u.role === 'admin';
+      const isFarmer = u.role !== 'cropper' && !isAdmin;
+      const roleBadge = isAdmin ? '<span class="pill red">অ্যাডমিন</span>' : (isFarmer ? '<span class="pill green">খামারি</span>' : '<span class="pill honey">কৃষক</span>');
+      return `
+        <tr>
+          <td>
+            <b>${u.name || '—'}</b>
+            <div style="margin-top:2px">${roleBadge}</div>
+          </td>
+          <td>
+            ${u.email ? `<div style="font-size:12px;color:var(--muted)">${u.email}</div>` : ''}
+            <code>${u.phone || '—'}</code>
+          </td>
+          <td>${u.upazila ? u.upazila + ', ' : ''}${u.district || '—'}</td>
+          <td>${u.farm || u.crop || u.main_crop || '—'}</td>
+          <td class="num">${bn(u.hives || 0)}</td>
+          <td style="text-align:center">
+            <button class="action-btn view" onclick="location.href='profile.html?farmer=${encodeURIComponent(u.name)}'">প্রোফাইল</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderFarms() {
+    document.getElementById('farmTableBody').innerHTML = FARMS.slice(0, 5).map(f => `
+      <tr class="link-row" onclick="location.href='hives.html?farm=${f.id}'">
+        <td><b>${f.name}</b></td>
+        <td>${f.ownerPhone ? 'নিবন্ধিত খামারি' : 'রহিম উদ্দিন'}</td>
+        <td>${f.upazila}, ${f.district}</td>
+        <td><span class="pill ${f.status === 'সক্রিয়' ? 'green' : 'gray'}">${f.status}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function renderAlerts() {
+    document.getElementById('alertListBody').innerHTML = NOTIFICATIONS.slice(0, 4).map(n => `
+      <div class="alert-item">
+        <span class="dot ${n.kind === 'spray' ? 'red' : 'honey'}"></span>
+        <div>
+          <b>${n.title}</b>
+          <span style="font-size:13px">${n.body}</span>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${n.when || 'সম্প্রতি'}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ইভেন্ট লিসেনারস
+  document.getElementById('userSearch').addEventListener('input', (e) => {
+    renderUserTable(e.target.value);
+  });
+
+  document.getElementById('refreshDataBtn').addEventListener('click', () => {
+    toast('ডাটা রিফ্রেশ করা হচ্ছে...');
+    loadAdminData();
+  });
+
+  // পেজ লোড
+  loadAdminData();
+</script>
+</body>
+</html>

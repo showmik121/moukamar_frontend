@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>বাক্সের বিস্তারিত — মৌখামার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .queen-badge { width: 52px; height: 52px; border-radius: 50%; background: #2F6FB0; color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
+  .hist { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line-2); font-size: 14px; }
+  .q { display: flex; flex-direction: column; gap: 6px; }
+  .q > span { font-size: 14px; color: var(--muted-2); }
+  .err { color: var(--red); font-size: 13px; min-height: 18px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" data-active="hives"></aside>
+
+  <main class="main">
+    <div class="crumbs"><a href="hives.html">খামার ও বাক্স</a> / <span id="crumbFarm"></span> / <span id="crumbHive"></span></div>
+
+    <header class="page-head">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <h1 id="title"></h1>
+        <span id="pills" style="display:flex;gap:8px;flex-wrap:wrap"></span>
+      </div>
+      <div class="btns">
+        <button class="btn" type="button" id="openMove">অন্য খামারে সরান</button>
+        <a class="btn primary" href="#inspect">+ নতুন পরিদর্শন</a>
+      </div>
+    </header>
+
+    <section class="facts" id="facts" aria-label="বাক্সের তথ্য"></section>
+
+    <div class="row">
+      <section class="card grow-1">
+        <h2>রানী</h2>
+        <div id="queen"></div>
+      </section>
+
+      <section class="card grow-1">
+        <h2>বাক্সে মধু</h2>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span id="honeyKg" style="font-size:40px;font-weight:700;color:var(--honey-text);line-height:1"></span>
+          <span class="sub">আনুমানিক, শেষ পরিদর্শন থেকে</span>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px"><span>মধুভরা ফ্রেম</span><b id="frameText"></b></div>
+          <div class="frames" id="frames" role="img"></div>
+        </div>
+        <div id="ready"></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;border-top:1px solid var(--line-2);padding-top:12px">
+          <span class="sub">এ বছর মোট সংগ্রহ</span><b id="yearTotal"></b>
+        </div>
+      </section>
+    </div>
+
+    <div class="row">
+      <section class="card grow-3" id="inspect">
+        <h2>নতুন পরিদর্শন</h2>
+        <div class="row" style="gap:16px">
+          <div class="q grow-1"><span>রানী দেখা গেছে?</span>
+            <div class="seg"><button type="button" aria-pressed="true">হ্যাঁ</button><button type="button" aria-pressed="false">না</button><button type="button" aria-pressed="false">শুধু ডিম</button></div></div>
+          <div class="q grow-1"><span>কলোনির শক্তি</span>
+            <div class="seg"><button type="button" aria-pressed="false">দুর্বল</button><button type="button" aria-pressed="false">মাঝারি</button><button type="button" aria-pressed="true">সবল</button></div></div>
+        </div>
+        <div class="row" style="gap:16px">
+          <div class="q grow-1"><span>মেজাজ</span>
+            <div class="seg"><button type="button" aria-pressed="true">শান্ত</button><button type="button" aria-pressed="false">অস্থির</button><button type="button" aria-pressed="false">আক্রমণাত্মক</button></div></div>
+          <label class="field grow-1">মধুভরা ফ্রেম
+            <input type="number" id="filledInput" min="0" max="20">
+          </label>
+        </div>
+        <div class="q"><span>পাওয়া রোগ বা শত্রু (একাধিক বাছা যায়)</span>
+          <div class="chips" id="diseaseChips"></div>
+        </div>
+        <label class="field">মন্তব্য
+          <textarea rows="2" placeholder="যেমন: বাক্সের পায়ে পিঁপড়া দেখা গেছে"></textarea>
+        </label>
+        <div class="btns"><button class="btn dark" type="button" id="saveInspect">পরিদর্শন সংরক্ষণ করুন</button></div>
+      </section>
+
+      <section class="card grow-2" id="harvest">
+        <h2>মধু সংগ্রহ লিখুন</h2>
+        <label class="field">পরিমাণ (কেজি)
+          <input type="number" id="kg" min="0" step="0.1" placeholder="যেমন ১২.৫">
+        </label>
+        <label class="field">ফুলের উৎস
+          <select id="flora"></select>
+        </label>
+        <label class="field">আর্দ্রতা (%)
+          <input type="number" id="moist" min="0" max="100" step="0.1" placeholder="১০ থেকে ৩০-এর মধ্যে">
+        </label>
+        <div class="err" id="harvestErr" role="alert"></div>
+        <button class="btn primary" type="button" id="saveHarvest">সংগ্রহ সংরক্ষণ করুন</button>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>বাক্সের ইতিহাস</h2>
+        <span class="sub">পরিদর্শন · চিকিৎসা · সংগ্রহ · স্থানান্তর</span>
+      </div>
+      <div id="timeline"></div>
+    </section>
+  </main>
+</div>
+
+<dialog id="moveDialog" aria-labelledby="moveTitle">
+  <form method="dialog" id="moveForm">
+    <h2 id="moveTitle" style="font-size:20px">বাক্স অন্য খামারে সরান</h2>
+    <p class="sub" style="margin:0">সরানোর ইতিহাস রেকর্ডে থাকবে।</p>
+    <label class="field">কোন খামারে
+      <select id="moveTo"></select>
+    </label>
+    <label class="field">তারিখ
+      <input type="date" value="2026-11-02">
+    </label>
+    <div class="btns" style="justify-content:flex-end">
+      <button class="btn" type="button" id="cancelMove">বাতিল</button>
+      <button class="btn primary" type="submit">সরান</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="queenDialog" aria-labelledby="queenTitle">
+  <form method="dialog" id="queenForm">
+    <h2 id="queenTitle">নতুন রানী বসান</h2>
+    <label class="field">রানী কোথা থেকে
+      <select name="source"><option>নিজস্ব (split থেকে)</option><option>নিজস্ব (রানী কোষ থেকে)</option><option>কেনা</option><option>অন্য খামারির কাছ থেকে</option></select>
+    </label>
+    <label class="field">চিহ্নের রং
+      <select name="color"><option>নীল</option><option>সাদা</option><option>হলুদ</option><option>লাল</option><option>সবুজ</option></select>
+      <span class="hint">আন্তর্জাতিক নিয়মে বছরের শেষ অঙ্ক অনুযায়ী রং দেওয়া হয়</span>
+    </label>
+    <div class="notice honey">নতুন রানী খাঁচায় রেখে ২–৩ দিন পর ছাড়ুন, যাতে কলোনি তাকে মেনে নেয়।</div>
+    <div class="btns" style="justify-content:flex-end">
+      <button class="btn" type="button" id="cancelQueen">বাতিল</button>
+      <button class="btn primary" type="submit">সংরক্ষণ</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const code = new URLSearchParams(location.search).get('code') || 'MK-014';
+  const hive = HIVES.find((h) => h.code === code) || HIVES[5];
+  let farm = FARMS.find((f) => f.id === hive.farm);
+
+  const timeline = [
+    ['২৮ অক্টো ২০২৬', 'পরিদর্শন', 'blue', `রানী দেখা গেছে, ${bn(hive.filled)}টা মধুভরা ফ্রেম, কোনো রোগ নেই`],
+    ['২০ অক্টো ২০২৬', 'স্থানান্তর', 'green', `বাড়ির খামার থেকে ${farm.name}-এ (সরিষা মৌসুম)`],
+    ['১৮ সেপ্টে ২০২৬', 'চিকিৎসা', 'red', 'ভ্যারোয়া মাইটের চিকিৎসা শেষ (১৪ দিন)'],
+    ['১২ এপ্রি ২০২৬', 'সংগ্রহ', 'honey', 'লিচুর মধু ১১ কেজি · আর্দ্রতা ১৯%'],
+    ['২০ ফেব্রু ২০২৬', 'সংগ্রহ', 'honey', 'সরিষার মধু ১৪ কেজি · আর্দ্রতা ২০%']
+  ];
+  // সংরক্ষিত নতুন ঘটনা আগে, তারপর নমুনা ইতিহাস
+  timeline.unshift(...(HIVE_EVENTS[hive.code] || []));
+  let yearTotal = 25 + HARVESTS.filter((h) => h.hive === hive.code && h.season === 'now').reduce((s, h) => s + h.kg, 0);
+
+  function renderHeader() {
+    document.title = `বাক্স ${hive.code} — মৌখামার`;
+    document.getElementById('crumbFarm').textContent = farm.name;
+    document.getElementById('crumbHive').textContent = 'বাক্স ' + hive.code;
+    document.getElementById('title').textContent = 'বাক্স ' + hive.code;
+    const pills = [];
+    pills.push(`<span class="pill lg ${hive.state === 'সবল' ? 'green' : hive.state === 'দুর্বল' ? 'honey' : 'red'}">${hive.state} কলোনি</span>`);
+    if (hive.queenAge > 2) pills.push('<span class="pill lg honey">রানী বদল দরকার</span>');
+    if (hive.last > 14) pills.push('<span class="pill lg red">পরিদর্শন বাকি</span>');
+    document.getElementById('pills').innerHTML = pills.join('');
+    const facts = [['খামার', farm.name], ['এলাকা', farm.upazila + ', ' + farm.district], ['প্রজাতি', hive.species], ['ফ্রেম', bn(hive.frames) + 'টা'], ['শেষ পরিদর্শন', bn(hive.last) + ' দিন আগে']];
+    document.getElementById('facts').innerHTML = facts.map((f) => `<div><span>${f[0]}</span><b>${f[1]}</b></div>`).join('');
+  }
+
+  function renderQueen() {
+    const el = document.getElementById('queen');
+    if (hive.queen === 'নেই') {
+      el.innerHTML = '<div class="notice red">এই বাক্সে এখন রানী নেই। দ্রুত নতুন রানী বসান বা অন্য কলোনির সাথে মেলান।</div>'
+        + '<button class="btn primary" type="button" id="openQueen" style="margin-top:12px">নতুন রানী বসান</button>';
+    } else {
+      const q = QUEENS[hive.code] || { color: 'নীল', source: 'নিজস্ব (split থেকে)' };
+      el.innerHTML = `<div style="display:flex;align-items:center;gap:14px">
+          <div class="queen-badge">${q.color}</div>
+          <div><b style="font-size:17px">রানী Q-${hive.code.slice(3)}</b><div class="sub">বয়স ${hive.queenAge ? bn(hive.queenAge) + ' বছর' : '১ বছরের কম'} · উৎস: ${q.source}</div></div>
+        </div>
+        <button class="btn" type="button" id="openQueen" style="margin-top:12px">রানী বদলান</button>
+        ${hive.queenAge > 2 ? '<div class="notice honey" style="margin-top:14px">রানীর বয়স ২ বছরের বেশি। ডিম পাড়া কমতে পারে; সরিষা মৌসুমের আগে বদলানো ভালো।</div>' : ''}
+        <div style="margin-top:14px"><div class="sub" style="margin-bottom:4px">রানী বদলের ইতিহাস</div>
+          <div class="hist"><span>Q-${hive.code.slice(3)} · নিজস্ব</span><span class="sub">${bn(String(2026 - hive.queenAge))}</span></div>
+          <div class="hist"><span>Q-${hive.code.slice(3)}-পুরনো · কেনা</span><span class="sub">${bn(String(2026 - hive.queenAge - 2))}</span></div>
+        </div>`;
+    }
+  }
+
+  function renderHoney() {
+    const kg = hive.filled * 2;
+    document.getElementById('honeyKg').textContent = '~' + bn(kg) + ' কেজি';
+    document.getElementById('frameText').textContent = bn(hive.filled) + ' / ' + bn(hive.frames);
+    document.getElementById('frames').setAttribute('aria-label', `${bn(hive.frames)}টা ফ্রেমের ${bn(hive.filled)}টা মধুভরা`);
+    document.getElementById('frames').style.gridTemplateColumns = `repeat(${hive.frames}, minmax(0, 1fr))`;
+    document.getElementById('frames').innerHTML = Array.from({ length: hive.frames }, (_, i) => `<i class="${i < hive.filled ? 'full' : ''}"></i>`).join('');
+    document.getElementById('ready').innerHTML = hive.filled >= 6
+      ? '<div class="notice green">সংগ্রহের জন্য প্রায় প্রস্তুত</div>'
+      : '<div class="notice honey">এখনো সংগ্রহের সময় হয়নি</div>';
+    document.getElementById('yearTotal').textContent = bn(yearTotal) + ' কেজি';
+    document.getElementById('filledInput').value = hive.filled;
+  }
+
+  function renderTimeline() {
+    document.getElementById('timeline').innerHTML = timeline.map((e) =>
+      `<div class="tl"><span class="d">${e[0]}</span><span class="pill ${e[2]}" style="align-self:flex-start">${e[1]}</span><span class="t">${e[3]}</span></div>`).join('');
+  }
+
+  // রোগের chip — inspection_diseases (M:N)
+  const chips = document.getElementById('diseaseChips');
+  chips.innerHTML = DISEASES.map((d) => `<button type="button" class="chip" aria-pressed="false" data-name="${d.name}">${d.name}</button>`).join('');
+  chips.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b) b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+  });
+
+  document.getElementById('saveInspect').addEventListener('click', () => {
+    const filled = Math.max(0, Math.min(hive.frames, Number(document.getElementById('filledInput').value) || 0));
+    hive.filled = filled;
+    hive.last = 0;
+    const found = [...chips.querySelectorAll('[aria-pressed="true"]')].map((b) => b.dataset.name);
+    const text = `${bn(filled)}টা মধুভরা ফ্রেম${found.length ? ', পাওয়া গেছে: ' + found.join(', ') : ', কোনো রোগ নেই'}`;
+    Store.addHiveEvent(hive.code, 'পরিদর্শন', 'blue', text);
+    timeline.unshift(HIVE_EVENTS[hive.code][0]);
+    INSPECTIONS.unshift({ date: todayShort(), hive: hive.code, farm: hive.farm, queen: hive.queen === 'নেই' ? 'দেখা যায়নি' : 'দেখা গেছে', strength: hive.state === 'দুর্বল' ? 'দুর্বল' : 'সবল', filled, diseases: found, note: '' });
+    Store.save();
+    chips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    renderHeader(); renderHoney(); renderTimeline();
+    toast('পরিদর্শন সংরক্ষণ হয়েছে');
+  });
+
+  // মধু সংগ্রহ — আর্দ্রতা যাচাই (database-এ CHECK constraint)
+  document.getElementById('flora').innerHTML = FLORA.filter((f) => !f.dearth).map((f) => `<option>${f.name}</option>`).join('');
+  document.getElementById('saveHarvest').addEventListener('click', () => {
+    const kg = Number(document.getElementById('kg').value);
+    const moist = Number(document.getElementById('moist').value);
+    const err = document.getElementById('harvestErr');
+    if (!(kg > 0)) { err.textContent = 'পরিমাণ ০-এর বেশি হতে হবে'; return; }
+    if (!(moist >= 10 && moist <= 30)) { err.textContent = 'আর্দ্রতা ১০% থেকে ৩০%-এর মধ্যে হতে হবে'; return; }
+    err.textContent = '';
+    const flora = document.getElementById('flora').value;
+    yearTotal += kg;
+    Store.addHiveEvent(hive.code, 'সংগ্রহ', 'honey', `মধু ${bn(kg)} কেজি (${flora}) · আর্দ্রতা ${bn(moist)}%`);
+    timeline.unshift(HIVE_EVENTS[hive.code][0]);
+    HARVESTS.unshift({ date: todayShort(), month: new Date().getMonth() + 1, season: 'now', hive: hive.code, flora, kg, moist });
+    Store.save();
+    document.getElementById('kg').value = '';
+    document.getElementById('moist').value = '';
+    renderHoney(); renderTimeline();
+    toast('মধু সংগ্রহ সংরক্ষণ হয়েছে');
+  });
+
+  // বাক্স সরানো — backend-এ stored procedure + transaction
+  const dlg = document.getElementById('moveDialog');
+  document.getElementById('moveTo').innerHTML = FARMS.filter((f) => f.id !== hive.farm).map((f) => `<option value="${f.id}">${f.name}</option>`).join('');
+  document.getElementById('openMove').addEventListener('click', () => dlg.showModal());
+  document.getElementById('cancelMove').addEventListener('click', () => dlg.close());
+  document.getElementById('moveForm').addEventListener('submit', () => {
+    const to = FARMS.find((f) => f.id === Number(document.getElementById('moveTo').value));
+    Store.addHiveEvent(hive.code, 'স্থানান্তর', 'green', `${farm.name} থেকে ${to.name}-এ`);
+    timeline.unshift(HIVE_EVENTS[hive.code][0]);
+    hive.farm = to.id;
+    Store.save();
+    farm = to;
+    document.getElementById('moveTo').innerHTML = FARMS.filter((f) => f.id !== hive.farm).map((f) => `<option value="${f.id}">${f.name}</option>`).join('');
+    renderHeader(); renderTimeline();
+    toast('বাক্স ' + to.name + '-এ সরানো হয়েছে');
+  });
+
+  // নতুন রানী — backend-এ INSERT INTO queens, পুরনো রানী inactive
+  const queenDlg = document.getElementById('queenDialog');
+  document.getElementById('queen').addEventListener('click', (e) => {
+    if (e.target.id !== 'openQueen') return;
+    document.getElementById('queenTitle').textContent = hive.queen === 'নেই' ? 'নতুন রানী বসান' : 'রানী বদলান';
+    queenDlg.showModal();
+  });
+  document.getElementById('cancelQueen').addEventListener('click', () => queenDlg.close());
+  document.getElementById('queenForm').addEventListener('submit', (e) => {
+    const f = Object.fromEntries(new FormData(e.target));
+    const replaced = hive.queen !== 'নেই';
+    QUEENS[hive.code] = { color: f.color, source: f.source, year: new Date().getFullYear() };
+    hive.queen = 'আছে';
+    hive.queenAge = 0;
+    if (hive.state === 'রানীহীন') hive.state = 'দুর্বল';
+    Store.addHiveEvent(hive.code, 'রানী', 'honey', `${replaced ? 'রানী বদল' : 'নতুন রানী বসানো'} — ${f.source}, রং ${f.color}`);
+    timeline.unshift(HIVE_EVENTS[hive.code][0]);
+    Store.save();
+    renderHeader(); renderQueen(); renderTimeline();
+    toast('নতুন রানী সংরক্ষণ হয়েছে');
+  });
+
+  renderHeader(); renderQueen(); renderHoney(); renderTimeline();
+</script>
+</body>
+</html>

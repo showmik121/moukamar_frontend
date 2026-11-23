@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>পরিদর্শন — মৌখামার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .q { display: flex; flex-direction: column; gap: 6px; }
+  .q > span { font-size: 14px; color: var(--muted-2); }
+  .due { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line-2); }
+  .due b { flex: 0 0 72px; }
+  .due .w { flex: 1; font-size: 14px; color: var(--muted-2); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" data-active="inspections"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1>পরিদর্শন</h1>
+        <div class="sub">বাক্স খুলে যা দেখলেন তা লিখুন — রানী, শক্তি, মধু আর রোগ</div>
+      </div>
+      <a class="btn primary" href="#new">+ নতুন পরিদর্শন</a>
+    </header>
+
+    <section class="kpis" id="kpis" aria-label="সারাংশ"></section>
+
+    <div class="dash-grid">
+      <div class="dash-col">
+        <section class="card" id="new">
+          <h2>নতুন পরিদর্শন</h2>
+          <div class="row" style="gap:16px">
+            <label class="field grow-1">বাক্স
+              <select id="hive"></select>
+            </label>
+            <label class="field grow-1">মধুভরা ফ্রেম
+              <input type="number" id="filled" min="0" max="20" value="0">
+            </label>
+          </div>
+          <div class="row" style="gap:16px">
+            <div class="q grow-1"><span>রানী</span>
+              <div class="seg" id="queen"><button type="button" aria-pressed="true">দেখা গেছে</button><button type="button" aria-pressed="false">দেখা যায়নি</button><button type="button" aria-pressed="false">শুধু ডিম</button></div></div>
+            <div class="q grow-1"><span>কলোনির শক্তি</span>
+              <div class="seg" id="strength"><button type="button" aria-pressed="false">দুর্বল</button><button type="button" aria-pressed="false">মাঝারি</button><button type="button" aria-pressed="true">সবল</button></div></div>
+          </div>
+          <div class="q"><span>পাওয়া রোগ বা শত্রু (একাধিক বাছা যায়)</span>
+            <div class="chips" id="chips"></div>
+          </div>
+          <label class="field">মন্তব্য
+            <input type="text" id="note" placeholder="যেমন: বাক্সের পায়ে পিঁপড়া">
+          </label>
+          <div class="btns"><button class="btn dark" type="button" id="save">পরিদর্শন সংরক্ষণ করুন</button></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>সব পরিদর্শন</h2>
+            <label class="field" style="flex-direction:row;align-items:center;gap:8px">খামার
+              <select id="farmFilter" style="min-height:38px"></select>
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table style="min-width:680px">
+              <thead><tr><th>তারিখ</th><th>বাক্স</th><th>রানী</th><th>শক্তি</th><th class="num">মধুভরা ফ্রেম</th><th>রোগ</th><th>মন্তব্য</th></tr></thead>
+              <tbody id="log"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="dash-col">
+        <section class="card">
+          <div class="card-head"><h2>পরিদর্শন বাকি</h2><span class="sub">১৪ দিনের বেশি</span></div>
+          <div id="due"></div>
+        </section>
+        <section class="card">
+          <h2>এ মাসে পাওয়া রোগ</h2>
+          <div id="found"></div>
+          <a class="btn" href="diseases.html">লক্ষণ দিয়ে রোগ খুঁজুন</a>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const farmName = (id) => FARMS.find((f) => f.id === id).name;
+  const pick = (id) => document.querySelector(`#${id} [aria-pressed="true"]`).textContent;
+
+  function renderKpis() {
+    const withDisease = INSPECTIONS.filter((i) => i.diseases.length).length;
+    const overdue = HIVES.filter((h) => h.last > 14).length;
+    const items = [
+      { k: 'এই সপ্তাহে পরিদর্শন', v: bn(INSPECTIONS.filter((i) => /নভে|২৯ অক্টো|২৮ অক্টো|২৭ অক্টো/.test(i.date)).length), ic: 'inspections', c: 'blue' },
+      { k: 'পরিদর্শন বাকি', v: bn(overdue), ic: 'warn', c: 'red' },
+      { k: 'রোগ পাওয়া গেছে', v: bn(withDisease), ic: 'diseases', c: 'honey' },
+      { k: 'রানী দেখা যায়নি', v: bn(INSPECTIONS.filter((i) => i.queen === 'দেখা যায়নি').length), ic: 'crown', c: 'red' }
+    ];
+    document.getElementById('kpis').innerHTML = items.map((x) =>
+      `<div class="kpi"><div class="kpi-top"><span class="k">${x.k}</span><span class="kpi-ic ${x.c}">${icon(x.ic)}</span></div><div class="v">${x.v}</div></div>`).join('');
+  }
+
+  function renderLog() {
+    const f = Number(document.getElementById('farmFilter').value);
+    const rows = INSPECTIONS.filter((i) => !f || i.farm === f);
+    document.getElementById('log').innerHTML = rows.map((i) => `
+      <tr class="link-row" onclick="location.href='hive.html?code=${i.hive}'">
+        <td>${i.date}</td><td><a href="hive.html?code=${i.hive}"><b>${i.hive}</b></a><br><span class="sub">${farmName(i.farm)}</span></td>
+        <td>${i.queen === 'দেখা গেছে' ? i.queen : `<span class="pill red">${i.queen}</span>`}</td>
+        <td><span class="pill ${i.strength === 'সবল' ? 'green' : i.strength === 'মাঝারি' ? 'gray' : 'honey'}">${i.strength}</span></td>
+        <td class="num">${bn(i.filled)}</td>
+        <td>${i.diseases.length ? i.diseases.map((d) => { const x = DISEASES.find((y) => y.name === d); return `<a class="pill red" style="text-decoration:none" href="diseases.html?d=${x ? x.id : ''}" onclick="event.stopPropagation()">${d}</a>`; }).join(' ') : '<span class="sub">নেই</span>'}</td>
+        <td class="sub">${i.note || '—'}</td></tr>`).join('') || '<tr><td colspan="7" class="empty">কোনো পরিদর্শন নেই</td></tr>';
+  }
+
+  function renderDue() {
+    const due = HIVES.filter((h) => h.last > 14).sort((a, b) => b.last - a.last);
+    document.getElementById('due').innerHTML = due.map((h) =>
+      `<div class="due"><b>${h.code}</b><span class="w">${farmName(h.farm)}<br><span style="color:var(--red);font-weight:600">${bn(h.last)} দিন আগে</span></span>
+        <button class="btn" type="button" data-hive="${h.code}" style="min-height:38px;padding:0 12px;font-size:14px">এখন করুন</button></div>`).join('')
+      || '<div class="empty">সব বাক্সের পরিদর্শন সময়মতো হয়েছে</div>';
+  }
+
+  function renderFound() {
+    const count = {};
+    INSPECTIONS.forEach((i) => i.diseases.forEach((d) => { count[d] = (count[d] || 0) + 1; }));
+    document.getElementById('found').innerHTML = Object.entries(count).map(([d, n]) =>
+      `<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line-2)"><span>${d}</span><b>${bn(n)}টা বাক্সে</b></div>`).join('')
+      || '<div class="empty">কোনো রোগ পাওয়া যায়নি</div>';
+  }
+
+  // form
+  document.getElementById('hive').innerHTML = HIVES.map((h) => `<option value="${h.code}">${h.code} · ${farmName(h.farm)}</option>`).join('');
+  document.getElementById('farmFilter').innerHTML = '<option value="0">সব</option>' + FARMS.map((f) => `<option value="${f.id}">${f.name}</option>`).join('');
+  const chips = document.getElementById('chips');
+  chips.innerHTML = DISEASES.map((d) => `<button type="button" class="chip" aria-pressed="false">${d.name}</button>`).join('');
+  chips.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b) b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+  });
+
+  document.getElementById('due').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-hive]');
+    if (!b) return;
+    document.getElementById('hive').value = b.dataset.hive;
+    document.getElementById('new').scrollIntoView({ behavior: 'smooth' });
+  });
+
+  document.getElementById('save').addEventListener('click', () => {
+    const code = document.getElementById('hive').value;
+    const hive = HIVES.find((h) => h.code === code);
+    const filled = Math.max(0, Math.min(hive.frames, Number(document.getElementById('filled').value) || 0));
+    const diseases = [...chips.querySelectorAll('[aria-pressed="true"]')].map((b) => b.textContent);
+    INSPECTIONS.unshift({ date: todayShort(), hive: code, farm: hive.farm, queen: pick('queen'), strength: pick('strength'), filled, diseases, note: document.getElementById('note').value.trim() });
+    hive.last = 0; hive.filled = filled;
+    Store.addHiveEvent(code, 'পরিদর্শন', 'blue', `${bn(filled)}টা মধুভরা ফ্রেম${diseases.length ? ', পাওয়া গেছে: ' + diseases.join(', ') : ', কোনো রোগ নেই'}`);
+    Store.save();
+    chips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    document.getElementById('note').value = '';
+    renderKpis(); renderLog(); renderDue(); renderFound();
+    toast(code + ' পরিদর্শন সংরক্ষণ হয়েছে');
+  });
+  document.getElementById('farmFilter').addEventListener('change', renderLog);
+
+  renderKpis(); renderLog(); renderDue(); renderFound();
+</script>
+</body>
+</html>

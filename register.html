@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>নিবন্ধন — মৌখামার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <section class="login-art">
+    <div class="brand" style="padding:0">
+      <svg width="40" height="40" viewBox="0 0 34 34" aria-hidden="true"><path d="M17 2 30 9.5v15L17 32 4 24.5v-15z" fill="#F2B632"/><path d="M17 10 23.5 13.75v7.5L17 25l-6.5-3.75v-7.5z" fill="#1F1B16"/></svg>
+      <span style="font-size:26px">মৌখামার</span>
+    </div>
+    <div>
+      <h1>খামারি আর কৃষক<br>একসাথে</h1>
+      <p>খামারিরা নিজেদের খামার আর বাক্সের হিসাব রাখেন। কৃষকেরা স্প্রে করার আগে খবর দিলে আশেপাশের সব খামারি সাথে সাথে জানতে পারেন — মৌমাছি বাঁচে, ফসলেও পরাগায়ন বাড়ে।</p>
+    </div>
+    <div class="hexes" aria-hidden="true">
+      <i></i><i class="h"></i><i></i><i class="h"></i><i class="h"></i><i></i>
+      <i class="h"></i><i></i><i class="h"></i><i></i><i></i><i class="h"></i>
+    </div>
+  </section>
+
+  <section class="login-form">
+    <form id="register" class="wide" novalidate>
+      <h2>নিবন্ধন করুন</h2>
+      <div class="field">আপনি কে?
+        <div class="seg" role="group" aria-label="ব্যবহারকারীর ধরন" id="roleSeg">
+          <button type="button" aria-pressed="true" data-role="farmer">খামারি</button>
+          <button type="button" aria-pressed="false" data-role="cropper">কৃষক</button>
+        </div>
+      </div>
+
+      <label class="field">পুরো নাম
+        <input name="name" required autocomplete="name" placeholder="যেমন: রহিম উদ্দিন">
+      </label>
+      <label class="field">মোবাইল নম্বর
+        <input name="phone" type="tel" inputmode="numeric" maxlength="14" required autocomplete="tel" placeholder="01XXXXXXXXX">
+      </label>
+
+      <div class="form-grid">
+        <label class="field">জেলা
+          <select name="district" id="district" required></select>
+        </label>
+        <label class="field">উপজেলা
+          <select name="upazila" id="upazila" required></select>
+        </label>
+      </div>
+
+      <div id="farmerFields" class="form-grid">
+        <label class="field full">খামারের নাম
+          <input name="farm" placeholder="যেমন: মধুকুঞ্জ মৌখামার">
+        </label>
+        <label class="field">খামারের ধরন
+          <select name="type"><option>ভ্রাম্যমাণ</option><option>স্থায়ী</option></select>
+        </label>
+        <label class="field">অভিজ্ঞতা (বছর)
+          <input name="exp" type="number" min="0" max="60" value="1">
+        </label>
+      </div>
+
+      <div id="cropperFields" hidden>
+        <label class="field">প্রধান ফসল
+          <select name="crop"><option>সরিষা</option><option>আলু</option><option>ধান</option><option>লিচু</option><option>সবজি</option><option>কালোজিরা</option></select>
+        </label>
+      </div>
+
+      <div class="form-grid">
+        <label class="field">পাসওয়ার্ড
+          <input name="password" type="password" minlength="6" required autocomplete="new-password">
+          <span class="hint">অন্তত ৬ অক্ষর</span>
+        </label>
+        <label class="field">আবার পাসওয়ার্ড
+          <input name="password2" type="password" required autocomplete="new-password">
+        </label>
+      </div>
+
+      <div class="err" id="err" role="alert"></div>
+      <button class="btn primary block" type="submit">নিবন্ধন করুন</button>
+      <p class="sub" style="margin:0">আগে থেকে নিবন্ধিত? <a href="index.html">লগ ইন করুন</a></p>
+    </form>
+  </section>
+</div>
+
+<script src="js/bd-locations.js"></script>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const form = document.getElementById('register');
+  const err = document.getElementById('err');
+  const districtSel = document.getElementById('district');
+  const upazilaSel = document.getElementById('upazila');
+
+  districtSel.innerHTML = '<option value="" disabled selected>জেলা নির্বাচন করুন</option>' + Object.keys(LOCATIONS).map((d) => `<option value="${d}">${d}</option>`).join('');
+  function fillUpazilas() {
+    const d = districtSel.value;
+    const upazilas = LOCATIONS[d] || [];
+    if (!upazilas.length) {
+      upazilaSel.innerHTML = '<option value="" disabled selected>আগে জেলা বাছুন</option>';
+      return;
+    }
+    upazilaSel.innerHTML = upazilas.map((u) => `<option value="${u}">${u}</option>`).join('');
+  }
+  districtSel.addEventListener('change', fillUpazilas);
+  fillUpazilas();
+
+  const roleOf = () => document.querySelector('#roleSeg [aria-pressed="true"]').dataset.role;
+  document.getElementById('roleSeg').addEventListener('click', () => {
+    setTimeout(() => {
+      const farmer = roleOf() === 'farmer';
+      document.getElementById('farmerFields').hidden = !farmer;
+      document.getElementById('cropperFields').hidden = farmer;
+    });
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(form));
+    const phone = String(f.phone).replace(/[^\d]/g, '');
+    const role = roleOf();
+
+    if (!f.district) { err.textContent = 'জেলা নির্বাচন করুন'; return; }
+    if (!f.upazila) { err.textContent = 'উপজেলা নির্বাচন করুন'; return; }
+    if (String(f.name).trim().length < 3) { err.textContent = 'পুরো নাম লিখুন'; return; }
+    if (!validPhone(phone)) { err.textContent = 'সঠিক মোবাইল নম্বর দিন (০১ দিয়ে শুরু, ১১ সংখ্যা)'; return; }
+    if (role === 'farmer' && !String(f.farm).trim()) { err.textContent = 'খামারের নাম লিখুন'; return; }
+    if (String(f.password).length < 6) { err.textContent = 'পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে'; return; }
+    if (f.password !== f.password2) { err.textContent = 'দুই পাসওয়ার্ড মেলেনি'; return; }
+
+    const user = {
+      phone,
+      password: f.password,
+      password2: f.password2 || f.password,
+      role,
+      name: String(f.name).trim(),
+      district: f.district,
+      upazila: f.upazila
+    };
+    if (role === 'farmer') {
+      Object.assign(user, {
+        farm: String(f.farm).trim(),
+        farm_name: String(f.farm).trim(),
+        type: f.type,
+        farm_type: f.type,
+        exp: Number(f.exp) || 0,
+        experience: Number(f.exp) || 0
+      });
+    } else {
+      user.crop = f.crop;
+      user.main_crop = f.crop;
+    }
+
+    // নতুন খামারিকে সরাসরি ম্যাপ ডেটাবেজ ও খামার তালিকায় যুক্ত করা
+    if (role === 'farmer') {
+      const coord = typeof getGeoCoord === 'function' ? getGeoCoord(f.district, f.upazila) : [24.0, 89.8];
+      if (typeof saveRegisteredFarmer === 'function') {
+        saveRegisteredFarmer({
+          name: user.name,
+          farm: user.farm || (user.name + '-এর খামার'),
+          phone: user.phone,
+          district: user.district,
+          upazila: user.upazila,
+          type: user.type || 'স্থায়ী',
+          hives: 0,
+          flora: ['সরিষা', 'মিশ্র ফুল'],
+          exp: user.exp || 1,
+          lat: coord[0],
+          lng: coord[1],
+          honeyProduced: 0,
+          activeBoxes: 0,
+          rating: 5.0,
+          regDate: typeof todayLong === 'function' ? todayLong() : 'আজ'
+        });
+      }
+      
+      // খামার তালিকায় যুক্ত করা
+      if (typeof FARMS !== 'undefined') {
+        FARMS.push({
+          id: typeof Store !== 'undefined' && Store.nextId ? Store.nextId(FARMS) : FARMS.length + 1,
+          name: user.farm,
+          upazila: user.upazila,
+          district: user.district,
+          flora: 'সরিষা ও অন্যান্য',
+          status: 'সক্রিয়',
+          since: 'আজ',
+          ownerPhone: user.phone
+        });
+      }
+    }
+
+    if (API.useBackend) {
+      try {
+        await API.post('auth/register/', user);
+      } catch (ex) {
+        if (ex.data && ex.data.phone) {
+          err.textContent = 'এই নম্বর দিয়ে আগেই নিবন্ধন হয়েছে';
+          return;
+        }
+      }
+    }
+    if (typeof findUser === 'function' && !findUser(phone) && typeof USERS !== 'undefined') {
+      USERS.push(user);
+    }
+    
+    if (typeof Store !== 'undefined') Store.save();
+    err.textContent = '';
+    const { password, ...safe } = user;
+    Session.set(safe);
+    toast('নিবন্ধন সম্পন্ন — স্বাগতম!');
+    setTimeout(() => { location.href = role === 'cropper' ? 'alerts.html#spray' : 'dashboard.html'; }, 700);
+  });
+</script>
+</body>
+</html>

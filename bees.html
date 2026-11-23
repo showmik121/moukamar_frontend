@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>মৌমাছি পরিচিতি — মৌখামার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .species { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .sp { background: #FFF; border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .sp.kept { border-color: var(--honey); box-shadow: inset 0 0 0 1px var(--honey); }
+  .sp h3 { font-family: var(--display); font-size: 20px; }
+  .sp .lat { font-size: 13px; color: var(--muted); font-style: italic; }
+  .sp .tag { align-self: flex-start; }
+  .sp dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 14px; }
+  .sp dt { color: var(--muted); }
+  .sp dd { margin: 0; font-weight: 600; }
+  .sp p { margin: 0; font-size: 14px; color: var(--ink-2); }
+  .sp .pm { font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
+  .sp .pm span::before { margin-right: 6px; font-weight: 700; }
+  .sp .pm .p::before { content: "+"; color: var(--green); }
+  .sp .pm .m::before { content: "−"; color: var(--red); }
+  .size { display: flex; align-items: flex-end; gap: 6px; height: 34px; }
+  .size i { display: block; background: var(--honey); border-radius: 50% 50% 45% 45%; }
+
+  .members { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .mem { background: #FFF; border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .mem-top { display: flex; align-items: center; gap: 12px; }
+  .mem-ic { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; }
+  .mem h3 { font-size: 19px; }
+  .mem .num { font-size: 13px; color: var(--muted); }
+  .mem ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-2); }
+  .mem .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .mem .facts div { background: var(--soft); border-radius: 10px; padding: 8px 10px; }
+  .mem .facts span { display: block; font-size: 12px; color: var(--muted); }
+  .mem .facts b { font-size: 15px; }
+
+  .cycle { display: flex; flex-direction: column; gap: 14px; }
+  .cyc-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 70px; gap: 12px; align-items: center; }
+  .cyc-bar { display: flex; height: 34px; border-radius: 8px; overflow: hidden; }
+  .cyc-bar i { display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+  .st-egg { background: #FFF3D6; color: #6B4A00; }
+  .st-larva { background: #F7D58A; color: #5A3B00; }
+  .st-pupa { background: #C98A12; color: #FFF; }
+  .cyc-scale { display: grid; grid-template-columns: 110px minmax(0, 1fr) 70px; gap: 12px; font-size: 12px; color: var(--muted); }
+  .cyc-scale .ticks { display: flex; justify-content: space-between; }
+
+  .ages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  .age { border-radius: 12px; padding: 12px; background: var(--soft); border-top: 4px solid var(--honey); }
+  .age b { display: block; font-size: 13px; color: var(--honey-ink); }
+  .age span { font-size: 14px; }
+
+  .products { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .prod { padding: 12px 14px; border-radius: 12px; background: var(--soft); }
+  .prod b { display: block; }
+  .prod span { font-size: 13.5px; color: var(--muted-2); }
+
+  @media (max-width: 1200px) { .species { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ages { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 760px) { .members, .products { grid-template-columns: minmax(0, 1fr); } .ages { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cyc-row, .cyc-scale { grid-template-columns: 70px minmax(0, 1fr) 54px; } }
+  @media (max-width: 560px) { .species { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" data-active="bees"></aside>
+
+  <main class="main">
+    <header class="page-head">
+      <div>
+        <h1>মৌমাছি পরিচিতি</h1>
+        <div class="sub">বাংলাদেশের মধু মৌমাছি কয় প্রকার, কলোনিতে কারা থাকে আর কে কী কাজ করে</div>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>বাংলাদেশের মধু মৌমাছি — ৪ প্রকার</h2>
+          <div class="sub">এর মধ্যে ২ প্রকার বাক্সে পালন করা যায় (হলুদ দাগ দেওয়া)</div>
+        </div>
+        <span class="sub" id="mine"></span>
+      </div>
+      <div class="species" id="species"></div>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:12px">
+      <div class="card-head">
+        <h2 style="font-size:18px">একটা কলোনিতে কারা থাকে — ৩ ধরনের সদস্য</h2>
+        <span class="sub">Apis mellifera-র হিসেবে</span>
+      </div>
+      <div class="members" id="members"></div>
+    </section>
+
+    <div class="row">
+      <section class="card grow-3">
+        <div class="card-head">
+          <h2>ডিম থেকে মৌমাছি হতে কত দিন</h2>
+          <div class="legend">
+            <span><i class="st-egg" style="width:16px;height:10px"></i>ডিম</span>
+            <span><i class="st-larva" style="width:16px;height:10px"></i>লার্ভা (খোলা কোষ)</span>
+            <span><i class="st-pupa" style="width:16px;height:10px"></i>পিউপা (ঢাকনা বসা)</span>
+          </div>
+        </div>
+        <div class="cycle" id="cycle" role="img" aria-label="রানী ১৬ দিন, কর্মী ২১ দিন, পুরুষ ২৪ দিন"></div>
+        <div class="notice honey">ঢাকনা বসা ব্রুডের ভেতরেই ভ্যারোয়া মাইট বংশবৃদ্ধি করে। পুরুষ মৌমাছির ব্রুড সবচেয়ে বেশি দিন ঢাকা থাকে, তাই মাইট সেখানে বেশি থাকে।</div>
+      </section>
+
+      <section class="card grow-2">
+        <h2>কর্মী মৌমাছির কাজ — বয়স অনুযায়ী</h2>
+        <div class="sub" style="margin-top:-6px">কর্মী মৌমাছি জীবনের শুরুতে বাক্সের ভেতরে, শেষে মাঠে কাজ করে</div>
+        <div class="ages" id="ages" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>মৌমাছি থেকে যা পাওয়া যায়</h2>
+      <div class="sub" style="margin-top:-6px">বাংলাদেশে বেশিরভাগ মৌচাষী শুধু মধু আর অল্প মোম সংগ্রহ করেন; বাকিগুলোও আয়ের উৎস হতে পারে</div>
+      <div class="products" id="products"></div>
+    </section>
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const SPECIES = [
+    { name: 'ইউরোপীয় মৌমাছি', lat: 'Apis mellifera', kept: true, size: 22, nest: 'বাক্সে, অনেক চাক', colony: '১০,০০০–৫০,০০০+', honey: 'বেশি (বাক্সপ্রতি বছরে ২০–৪০ কেজি)', temper: 'শান্ত',
+      about: 'বাংলাদেশে বাণিজ্যিক মৌচাষের মূল জাত; সরিষা ও লিচু খামারে বেশি দেখা যায়।',
+      plus: ['মধু বেশি', 'বাক্স ছেড়ে কম পালায়'], minus: ['ভ্যারোয়া মাইটে বেশি আক্রান্ত', 'ফুল কম থাকলে খাবার দিতে হয়'] },
+    { name: 'দেশি মৌমাছি', lat: 'Apis cerana', kept: true, size: 18, nest: 'বাক্সে বা গাছের কোটরে, অনেক চাক', colony: '৫,০০০–১৫,০০০', honey: 'কম (বাক্সপ্রতি বছরে ৫–১০ কেজি)', temper: 'মাঝারি',
+      about: 'এদেশের নিজস্ব মৌমাছি। গরম, আর্দ্রতা আর মাইট ভালোভাবে সামলাতে পারে।',
+      plus: ['মাইট সহনশীল', 'খরচ কম'], minus: ['সহজে বাক্স ছেড়ে চলে যায়', 'স্যাকব্রুডে বেশি ক্ষতি'] },
+    { name: 'পাহাড়ি / বড় মৌমাছি', lat: 'Apis dorsata', kept: false, size: 28, nest: 'খোলা জায়গায় একটা বড় চাক (গাছ, দালান)', colony: '৫০,০০০ পর্যন্ত', honey: 'চাকপ্রতি অনেক', temper: 'খুব রাগী',
+      about: 'সুন্দরবনের মধুর বড় অংশ এদের চাক থেকে আসে; মৌয়ালরা সংগ্রহ করেন।',
+      plus: ['প্রাকৃতিক মধুর বড় উৎস'], minus: ['বাক্সে পালন করা যায় না', 'ট্রপিলেল্যাপস মাইটের মূল বাহক'] },
+    { name: 'ছোট মৌমাছি', lat: 'Apis florea', kept: false, size: 13, nest: 'ঝোপঝাড়ে ছোট একটা চাক', colony: 'কয়েক হাজার', honey: 'খুব কম', temper: 'শান্ত',
+      about: 'সবচেয়ে ছোট মধু মৌমাছি। ফসলের পরাগায়নে সাহায্য করে।',
+      plus: ['পরাগায়নে উপকারী'], minus: ['পালন করা হয় না', 'মধু সামান্য'] }
+  ];
+  const counts = {};
+  HIVES.forEach((h) => { counts[h.species] = (counts[h.species] || 0) + 1; });
+  document.getElementById('mine').textContent = 'আপনার খামারে: ' + Object.entries(counts).map(([s, n]) => `${s.replace('Apis ', '')} ${bn(n)}টা`).join(' · ');
+  document.getElementById('species').innerHTML = SPECIES.map((s) => `
+    <article class="sp ${s.kept ? 'kept' : ''}">
+      <span class="pill tag ${s.kept ? 'honey' : 'gray'}">${s.kept ? 'বাক্সে পালন করা যায়' : 'বুনো'}</span>
+      <div><h3>${s.name}</h3><div class="lat">${s.lat}</div></div>
+      <div class="size" aria-hidden="true" title="আকারের তুলনা"><i style="width:${s.size * .55}px;height:${s.size}px"></i><span class="sub" style="font-size:12px">আকার</span></div>
+      <p>${s.about}</p>
+      <dl><dt>বাসা</dt><dd>${s.nest}</dd><dt>কলোনি</dt><dd>${s.colony}</dd><dt>মধু</dt><dd>${s.honey}</dd><dt>স্বভাব</dt><dd>${s.temper}</dd></dl>
+      <div class="pm">${s.plus.map((x) => `<span class="p">${x}</span>`).join('')}${s.minus.map((x) => `<span class="m">${x}</span>`).join('')}</div>
+    </article>`).join('');
+
+  const MEMBERS = [
+    { name: 'রানী', n: '১টা', c: 'honey', ic: 'র', days: '১৬ দিন', life: '২–৩ বছর (সর্বোচ্চ ৫)',
+      jobs: ['কলোনির একমাত্র ডিম পাড়া মৌমাছি — দিনে ১,৫০০–২,০০০ পর্যন্ত', 'গন্ধ (ফেরোমোন) দিয়ে পুরো কলোনিকে এক রাখে', 'জীবনের শুরুতে একবার উড়ে গিয়ে পুরুষের সাথে মিলন করে'] },
+    { name: 'কর্মী', n: 'হাজার হাজার — সব স্ত্রী', c: 'green', ic: 'ক', days: '২১ দিন', life: 'মধু মৌসুমে ৫–৬ সপ্তাহ, শীতে কয়েক মাস',
+      jobs: ['বাক্সের প্রায় সব কাজ — খাওয়ানো, মোম, পাহারা', 'ফুল থেকে রস, পরাগ আর পানি আনা', 'রানী না থাকলে নতুন রানী তৈরি করা'] },
+    { name: 'পুরুষ (ড্রোন)', n: 'কয়েকশো', c: 'blue', ic: 'পু', days: '২৪ দিন', life: 'কয়েক সপ্তাহ',
+      jobs: ['একমাত্র কাজ অন্য কলোনির রানীর সাথে মিলন', 'হুল নেই, নিজে খাবার সংগ্রহ করে না', 'ফুল কম পড়লে কর্মীরা বাক্স থেকে বের করে দেয়'] }
+  ];
+  document.getElementById('members').innerHTML = MEMBERS.map((m) => `
+    <article class="mem">
+      <div class="mem-top"><span class="mem-ic kpi-ic ${m.c}">${m.ic}</span><div><h3>${m.name}</h3><span class="num">${m.n}</span></div></div>
+      <div class="facts"><div><span>ডিম থেকে পূর্ণ</span><b>${m.days}</b></div><div><span>আয়ু</span><b>${m.life}</b></div></div>
+      <ul>${m.jobs.map((j) => `<li>${j}</li>`).join('')}</ul>
+    </article>`).join('');
+
+  // ডিম, লার্ভা, পিউপা — দিন
+  const CYCLE = [['রানী', 3, 5.5, 7.5, 16], ['কর্মী', 3, 6, 12, 21], ['পুরুষ', 3, 6.5, 14.5, 24]];
+  const MAX = 24;
+  document.getElementById('cycle').innerHTML = CYCLE.map(([n, e, l, p, t]) => `
+    <div class="cyc-row"><b>${n}</b>
+      <div class="cyc-bar" style="width:${t / MAX * 100}%">
+        <i class="st-egg" style="width:${e / t * 100}%">${bn(e)}</i><i class="st-larva" style="width:${l / t * 100}%">${bn(l)}</i><i class="st-pupa" style="width:${p / t * 100}%">${bn(p)} দিন</i>
+      </div><b>${bn(t)} দিন</b></div>`).join('') +
+    `<div class="cyc-scale"><span></span><div class="ticks"><span>০</span><span>৬</span><span>১২</span><span>১৮</span><span>২৪ দিন</span></div><span></span></div>`;
+
+  const AGES = [['১–৩ দিন', 'কোষ পরিষ্কার'], ['৩–১০ দিন', 'লার্ভাকে খাওয়ানো (নার্স)'], ['১০–১৮ দিন', 'মোম তৈরি, চাক বানানো, মধু প্রক্রিয়া'], ['১৮–২১ দিন', 'বাক্সের মুখে পাহারা'], ['২১ দিন থেকে', 'মাঠে রস, পরাগ ও পানি সংগ্রহ']];
+  document.getElementById('ages').innerHTML = AGES.map(([a, j]) => `<div class="age"><b>${a}</b><span>${j}</span></div>`).join('');
+
+  const PRODUCTS = [['মধু', 'মূল পণ্য; ফুল অনুযায়ী স্বাদ ও রং আলাদা'], ['মোম', 'মোমবাতি, প্রসাধনী, নতুন চাকের ভিত্তি (ফাউন্ডেশন)'], ['পরাগ', 'প্রোটিন সমৃদ্ধ খাদ্য সম্পূরক'], ['প্রোপোলিস', 'গাছের আঠা থেকে তৈরি, ওষুধ শিল্পে ব্যবহার'], ['রয়েল জেলি', 'রানী লার্ভার খাবার, দামি পণ্য'], ['পরাগায়ন', 'সরিষা ও লিচুর মতো ফসলের ফলন বাড়ায়']];
+  document.getElementById('products').innerHTML = PRODUCTS.map(([p, d]) => `<div class="prod"><b>${p}</b><span>${d}</span></div>`).join('');
+</script>
+</body>
+</html>
