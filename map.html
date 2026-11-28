@@ -23,7 +23,7 @@
       </div>
       <div class="btns">
         <a class="btn ghost" href="directory.html">তালিকা</a>
-        <button class="btn dark" id="openRegisterBtn" type="button">+ খামারি যোগ</button>
+        <button class="btn dark" id="openRegisterBtn" type="button" style="display:none">আমার খামারের অবস্থান</button>
       </div>
     </header>
 
@@ -74,7 +74,7 @@
 
       <!-- pick-location hint -->
       <div class="mapx-pickbar" id="pickBar" hidden>
-        <span>ম্যাপে খামারের জায়গায় ক্লিক করুন</span>
+        <span>ম্যাপে আপনার খামারের জায়গায় ক্লিক করুন</span>
         <button type="button" class="mapx-link light" id="pickCancel">বাতিল</button>
       </div>
 
@@ -97,40 +97,30 @@
   </aside>
 </div>
 
-<!-- new farmer -->
+<!-- my farm's location -->
 <div class="modal-overlay" id="registerModal" role="dialog" aria-labelledby="modalTitle">
   <div class="modal-dialog mapx-modal">
     <div class="mapx-drawer-head">
-      <h2 id="modalTitle">নতুন খামারি</h2>
+      <h2 id="modalTitle">খামারের অবস্থান</h2>
       <button class="drawer-close" id="modalCloseBtn" type="button" aria-label="বন্ধ করুন">&times;</button>
     </div>
-    <form id="registerForm">
+    <form id="registerForm" novalidate>
       <div class="modal-body">
-        <div class="mapx-grid">
-          <label class="field">খামারির নাম<input type="text" name="name" required placeholder="আব্দুল কাদের"></label>
-          <label class="field">খামারের নাম<input type="text" name="farm" required placeholder="সোনার বাংলা মৌখামার"></label>
-          <label class="field">মোবাইল<input type="tel" name="phone" required placeholder="017xxxxxxxx" pattern="01[3-9][0-9]{8}" title="১১ সংখ্যার মোবাইল নম্বর, যেমন 01712345678"></label>
-          <label class="field">ধরন
-            <select name="type"><option value="স্থায়ী">স্থায়ী</option><option value="ভ্রাম্যমাণ">ভ্রাম্যমাণ</option></select>
-          </label>
-          <label class="field">জেলা<select name="district" id="regDistrict" required></select></label>
-          <label class="field">উপজেলা<select name="upazila" id="regUpazila" required></select></label>
-          <label class="field">বাক্স সংখ্যা<input type="number" name="hives" min="1" max="1000" value="50" required></label>
-          <label class="field">অভিজ্ঞতা (বছর)<input type="number" name="exp" min="0" max="60" value="5"></label>
-        </div>
-        <label class="field">প্রধান ফুল<select name="flora" id="regFlora" required></select></label>
+        <p class="sub" style="margin:0 0 12px">নিবন্ধনের সময় খামারটা জেলার কেন্দ্রে বসানো হয়। ম্যাপে আসল জায়গাটা বেছে দিলে অন্য খামারিরা আপনাকে ঠিক জায়গায় দেখবেন।</p>
+        <label class="field">খামার<select name="farm" id="regFarm" required></select></label>
 
-        <div class="mapx-loc">
+        <div class="mapx-loc" style="margin-top:12px">
           <div>
             <b>অবস্থান</b>
-            <span id="regLocText">উপজেলার কেন্দ্র ব্যবহার হবে</span>
+            <span id="regLocText">—</span>
           </div>
           <button type="button" class="btn ghost sm" id="pickOnMap">ম্যাপে বাছুন</button>
         </div>
+        <div class="err" id="regErr" role="alert" style="margin-top:8px"></div>
       </div>
       <div class="modal-foot mapx-foot">
         <button class="btn ghost" type="button" id="modalCancelBtn">বাতিল</button>
-        <button class="btn dark" type="submit">সংরক্ষণ</button>
+        <button class="btn dark" type="submit" id="regSave">সংরক্ষণ</button>
       </div>
     </form>
   </div>
@@ -143,7 +133,7 @@
 <script src="js/bd-border.js"></script>
 <script>
 /* Leaflet + markercluster লোড: unpkg না পেলে jsDelivr থেকে চেষ্টা */
-(function loadMapLibs() {
+const mapLibs = (function loadMapLibs() {
   const CDNS = ['https://unpkg.com/', 'https://cdn.jsdelivr.net/npm/'];
   const libs = ['leaflet@1.9.4/dist/leaflet.js', 'leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js'];
 
@@ -161,22 +151,31 @@
     }
     throw new Error('lib not loaded: ' + path);
   }
-  (async () => {
-    try {
-      if (!window.L) await loadAny(libs[0]);
-      if (!L.markerClusterGroup) await loadAny(libs[1]).catch(() => {}); // cluster না পেলেও ম্যাপ চলবে
-      startMap();
-    } catch (e) {
-      document.getElementById('offline').hidden = false;
-      document.getElementById('summary').textContent = 'ম্যাপ লোড হয়নি';
-    }
+  return (async () => {
+    if (!window.L) await loadAny(libs[0]);
+    if (!L.markerClusterGroup) await loadAny(libs[1]).catch(() => {}); // cluster না পেলেও ম্যাপ চলবে
   })();
 })();
 
-function startMap() {
+// খামারিদের তালিকা /api/map-farmers/ থেকে (v_farmer_directory ভিউ — অবস্থান খামারের,
+// না থাকলে জেলার)। আগে এখানে localStorage-এ রাখা নমুনা খামারি দেখানো হতো,
+// আর "+ খামারি যোগ" যে কাউকে যেকোনো নামে খামারি বানিয়ে দিত — শুধু এই কম্পিউটারে।
+MK.start(['flora', 'farms', 'outbreaks'], async (me) => {
+  fill(FARMERS, await API.get('map-farmers/'));
+  try {
+    await mapLibs;
+  } catch (e) {
+    document.getElementById('offline').hidden = false;
+    document.getElementById('summary').textContent = 'ম্যাপ লোড হয়নি';
+    return;
+  }
+  startMap(me);
+});
+
+function startMap(me) {
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const uniq = (arr) => [...new Set(arr.filter(Boolean))];
+  const isFarmer = me.role === 'farmer';
 
   /* ---------- map: শুধু বাংলাদেশ ---------- */
   const BD_BOUNDS = L.latLngBounds([20.62, 87.95], [26.70, 92.72]);
@@ -208,10 +207,11 @@ function startMap() {
       attribution: OSM_ATTR + ', SRTM | &copy; <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a>', subdomains: 'abc', maxNativeZoom: 17, maxZoom: 18
     })
   };
+  // কোন ম্যাপ-স্তর বাছা ছিল — শুধু এই কম্পিউটারের পছন্দ, তথ্য নয়
   let baseName = 'স্যাটেলাইট';
   try { const saved = localStorage.getItem('mk-basemap2'); if (BASEMAPS[saved]) baseName = saved; } catch (e) {}
   BASEMAPS[baseName].addTo(map);
-  const layersCtl = L.control.layers(BASEMAPS, null, { position: 'topright' }).addTo(map);
+  L.control.layers(BASEMAPS, null, { position: 'topright' }).addTo(map);
   map.getContainer().classList.toggle('sat', baseName.startsWith('স্যাটেলাইট'));
   map.on('baselayerchange', (e) => {
     map.getContainer().classList.toggle('sat', e.name.startsWith('স্যাটেলাইট'));
@@ -254,11 +254,11 @@ function startMap() {
   const districtLabels = L.layerGroup(), upazilaLabels = L.layerGroup();
   Object.entries(DISTRICT_COORDS).forEach(([d, D]) => {
     L.marker([D.lat, D.lng], { pane: 'labels', interactive: false, keyboard: false,
-      icon: L.divIcon({ className: 'mapx-place district', html: `<span>${esc(d)}</span>`, iconSize: [0, 0] }) }).addTo(districtLabels);
+      icon: L.divIcon({ className: 'mapx-place district', html: `<span>${escapeHtml(d)}</span>`, iconSize: [0, 0] }) }).addTo(districtLabels);
     Object.entries(D.upazilas).forEach(([u, ll]) => {
       if (u === 'সদর') return;
       L.marker(ll, { pane: 'labels', interactive: false, keyboard: false,
-        icon: L.divIcon({ className: 'mapx-place upazila', html: `<span>${esc(u)}</span>`, iconSize: [0, 0] }) }).addTo(upazilaLabels);
+        icon: L.divIcon({ className: 'mapx-place upazila', html: `<span>${escapeHtml(u)}</span>`, iconSize: [0, 0] }) }).addTo(upazilaLabels);
     });
   });
   function syncLabels() {
@@ -279,21 +279,21 @@ function startMap() {
   cluster.addTo(map);
 
   /* ---------- filters ---------- */
-  const DISTRICTS = Object.keys(DISTRICT_COORDS);
+  // ফিল্টারে আগে খামারিদের আসল জেলাগুলো, তারপর ম্যাপের জানা জেলাগুলো
+  const DISTRICTS = uniq([...FARMERS.map((f) => f.district).sort(), ...Object.keys(DISTRICT_COORDS)]);
   const FLORA_NAMES = uniq([...FLORA.filter((f) => !f.dearth).map((f) => f.name), ...FARMERS.flatMap((f) => f.flora || [])]);
-  const opts = (list, all) => (all ? `<option value="">${all}</option>` : '') + list.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const opts = (list, all) => (all ? `<option value="">${all}</option>` : '') + list.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
 
   $('fDistrict').innerHTML = opts(DISTRICTS, 'সব জেলা');
   $('fFlora').innerHTML = opts(FLORA_NAMES, 'সব ফুল');
-  $('regDistrict').innerHTML = opts(DISTRICTS);
-  $('regFlora').innerHTML = opts(FLORA_NAMES);
 
-  function fillUpazilas(dSel, uSel, all) {
-    const d = $(dSel).value;
-    const list = d && DISTRICT_COORDS[d] ? Object.keys(DISTRICT_COORDS[d].upazilas) : [];
-    $(uSel).innerHTML = opts(list, all);
+  function fillUpazilas() {
+    const d = $('fDistrict').value;
+    const known = d && DISTRICT_COORDS[d] ? Object.keys(DISTRICT_COORDS[d].upazilas) : [];
+    const list = d ? uniq([...FARMERS.filter((f) => f.district === d).map((f) => f.upazila), ...known]) : [];
+    $('fUpazila').innerHTML = opts(list, 'সব উপজেলা');
   }
-  fillUpazilas('fDistrict', 'fUpazila', 'সব উপজেলা');
+  fillUpazilas();
 
   const state = { type: '' };
   $('filterToggle').addEventListener('click', () => {
@@ -303,7 +303,7 @@ function startMap() {
     $('results').hidden = true;
   });
   $('fDistrict').addEventListener('change', () => {
-    fillUpazilas('fDistrict', 'fUpazila', 'সব উপজেলা');
+    fillUpazilas();
     render({ fit: true });
   });
   $('fUpazila').addEventListener('change', () => render({ fit: true }));
@@ -319,7 +319,7 @@ function startMap() {
     $('q').value = '';
     $('fDistrict').value = '';
     $('fFlora').value = '';
-    fillUpazilas('fDistrict', 'fUpazila', 'সব উপজেলা');
+    fillUpazilas();
     $('fType').querySelector('[data-v=""]').click();
     goHome();
   });
@@ -328,15 +328,15 @@ function startMap() {
     const q = $('q').value.trim().toLowerCase();
     const d = $('fDistrict').value, u = $('fUpazila').value, fl = $('fFlora').value;
     return FARMERS.filter((f) => {
-      const matchQ = !q || 
-        (f.name && f.name.toLowerCase().includes(q)) || 
-        (f.farm && f.farm.toLowerCase().includes(q)) || 
-        (f.upazila && f.upazila.toLowerCase().includes(q)) || 
+      const matchQ = !q ||
+        (f.name && f.name.toLowerCase().includes(q)) ||
+        (f.farm && f.farm.toLowerCase().includes(q)) ||
+        (f.upazila && f.upazila.toLowerCase().includes(q)) ||
         (f.district && f.district.toLowerCase().includes(q)) ||
         (f.phone && f.phone.includes(q));
       const matchD = !d || f.district === d;
       const matchU = !u || f.upazila === u;
-      const matchFl = !fl || (f.flora && f.flora.some(item => item.includes(fl)));
+      const matchFl = !fl || (f.flora && f.flora.some((item) => item.includes(fl)));
       const matchType = !state.type || f.type === state.type;
       return matchQ && matchD && matchU && matchFl && matchType;
     });
@@ -344,13 +344,15 @@ function startMap() {
 
   /* ---------- markers ---------- */
   const markers = new Map();
+  const hasPoint = (f) => typeof f.lat === 'number' && typeof f.lng === 'number';
 
   function pin(f) {
     const mobile = f.type === 'ভ্রাম্যমাণ';
-    const size = f.hives >= 100 ? 34 : f.hives >= 50 ? 30 : 26;
+    const hives = f.hives || 0;
+    const size = hives >= 100 ? 34 : hives >= 50 ? 30 : 26;
     return L.divIcon({
       className: 'mapx-pin-wrap',
-      html: `<div class="mapx-pin ${mobile ? 'mobile' : ''}" style="width:${size}px;height:${size}px">${bn(f.hives)}</div>`,
+      html: `<div class="mapx-pin ${mobile ? 'mobile' : ''}" style="width:${size}px;height:${size}px">${bn(hives)}</div>`,
       iconSize: [size, size], iconAnchor: [size / 2, size / 2], tooltipAnchor: [0, -size / 2]
     });
   }
@@ -361,9 +363,9 @@ function startMap() {
     markers.clear();
 
     list.forEach((f) => {
-      if (typeof f.lat !== 'number' || typeof f.lng !== 'number') return;
+      if (!hasPoint(f)) return;
       const m = L.marker([f.lat, f.lng], { icon: pin(f), title: f.farm, keyboard: true, riseOnHover: true });
-      m.bindTooltip(`<b>${esc(f.farm)}</b><br>${esc(f.name)} · ${esc(f.upazila)}`, { direction: 'top', className: 'mapx-tip', offset: [0, -4] });
+      m.bindTooltip(`<b>${escapeHtml(f.farm)}</b><br>${escapeHtml(f.name)} · ${escapeHtml(f.upazila || f.district || '')}`, { direction: 'top', className: 'mapx-tip', offset: [0, -4] });
       m.on('click', () => openFarmer(f));
       markers.set(f.id, m);
       cluster.addLayer(m);
@@ -371,14 +373,17 @@ function startMap() {
 
     const hives = list.reduce((s, f) => s + (f.hives || 0), 0);
     const dists = uniq(list.map((f) => f.district)).length;
-    $('summary').textContent = `${bn(list.length)} জন খামারি · ${bn(hives)} টি বাক্স · ${bn(dists)} টি জেলা`;
-    $('pinCount').textContent = `${bn(list.length)} টি খামার`;
+    $('summary').textContent = FARMERS.length
+      ? `${bn(list.length)} জন খামারি · ${bn(hives)} টি বাক্স · ${bn(dists)} টি জেলা`
+      : 'এখনো কোনো খামারি নিবন্ধন করেননি';
+    $('pinCount').textContent = `${bn(list.filter(hasPoint).length)} টি খামার`;
 
     const active = $('fDistrict').value || $('fUpazila').value || $('fFlora').value || state.type;
     $('filterDot').hidden = !active;
 
-    if (fit && list.length) {
-      const b = L.latLngBounds(list.filter((f) => f.lat).map((f) => [f.lat, f.lng]));
+    const pts = list.filter(hasPoint);
+    if (fit && pts.length) {
+      const b = L.latLngBounds(pts.map((f) => [f.lat, f.lng]));
       map.flyToBounds(b.pad(0.25), { maxZoom: 11, duration: 0.6 });
     }
     return list;
@@ -411,8 +416,8 @@ function startMap() {
     if (!q) { box.hidden = true; return; }
     const hits = filtered().slice(0, 5);
     box.innerHTML =
-      hits.map((f) => `<button type="button" data-farmer="${f.id}"><b>${esc(f.farm)}</b><span>${esc(f.name)} · ${esc(f.upazila)}, ${esc(f.district)}</span></button>`).join('') +
-      `<button type="button" data-place="1" class="place"><b>“${esc(q)}” স্থানটি খুঁজুন</b><span>OpenStreetMap থেকে · Enter চাপুন</span></button>`;
+      hits.map((f) => `<button type="button" data-farmer="${escapeHtml(f.id)}"><b>${escapeHtml(f.farm)}</b><span>${escapeHtml(f.name)} · ${escapeHtml([f.upazila, f.district].filter(Boolean).join(', '))}</span></button>`).join('') +
+      `<button type="button" data-place="1" class="place"><b>“${escapeHtml(q)}” স্থানটি খুঁজুন</b><span>OpenStreetMap থেকে · Enter চাপুন</span></button>`;
     box.hidden = false;
     $('filters').hidden = true;
   }
@@ -429,14 +434,14 @@ function startMap() {
       if (!data.length) { box.innerHTML = '<div class="mapx-res-note">কোনো স্থান পাওয়া যায়নি</div>'; return; }
       box.innerHTML = data.map((p, i) => {
         const parts = p.display_name.split(',').map((s) => s.trim());
-        return `<button type="button" data-geo="${i}"><b>${esc(parts[0])}</b><span>${esc(parts.slice(1, 4).join(', '))}</span></button>`;
+        return `<button type="button" data-geo="${i}"><b>${escapeHtml(parts[0])}</b><span>${escapeHtml(parts.slice(1, 4).join(', '))}</span></button>`;
       }).join('');
       box.querySelectorAll('[data-geo]').forEach((b) => b.addEventListener('click', () => {
         const p = data[Number(b.dataset.geo)];
         const ll = [Number(p.lat), Number(p.lon)];
         if (placeMarker) placeMarker.remove();
         placeMarker = L.circleMarker(ll, { radius: 7, color: '#1F1B16', weight: 2, fillColor: '#fff', fillOpacity: 1 })
-          .addTo(map).bindTooltip(esc(p.display_name.split(',')[0]), { permanent: true, direction: 'top', className: 'mapx-tip' });
+          .addTo(map).bindTooltip(escapeHtml(p.display_name.split(',')[0]), { permanent: true, direction: 'top', className: 'mapx-tip' });
         if (p.boundingbox) {
           const [s, n, w, e] = p.boundingbox.map(Number);
           map.flyToBounds([[s, w], [n, e]], { maxZoom: 14, duration: 0.6 });
@@ -460,7 +465,7 @@ function startMap() {
     if (!b) return;
     if (b.dataset.place) return searchPlace($('q').value.trim());
     if (b.dataset.farmer) {
-      const f = FARMERS.find((x) => x.id === Number(b.dataset.farmer));
+      const f = FARMERS.find((x) => String(x.id) === b.dataset.farmer);
       if (f) focusFarmer(f);
       $('results').hidden = true;
     }
@@ -470,52 +475,52 @@ function startMap() {
   });
 
   function focusFarmer(f) {
-    map.flyTo([f.lat, f.lng], 12, { duration: 0.6 });
+    if (hasPoint(f)) map.flyTo([f.lat, f.lng], 12, { duration: 0.6 });
     openFarmer(f);
   }
 
   /* ---------- farmer panel ---------- */
   function openFarmer(f) {
-    const honey = f.honeyProduced || Math.round(f.hives * 12);
-    const active = f.activeBoxes || Math.round(f.hives * 0.9);
-    const risk = OUTBREAKS.find((o) => o.where.includes(f.upazila));
-    const near = FARMERS.filter((x) => x.id !== f.id && x.lat && distKm(f, x) <= 15).length;
+    // রোগের খবর /api/outbreaks/ থেকে (v_area_outbreaks ভিউ, গত ৩০ দিন)
+    const risk = f.upazila ? OUTBREAKS.find((o) => (o.where || '').split(', ').includes(f.upazila)) : null;
+    const near = hasPoint(f) ? FARMERS.filter((x) => x.id !== f.id && hasPoint(x) && distKm(f, x) <= 15).length : 0;
     const phone = String(f.phone || '').replace(/[^0-9+]/g, '');
+    const place = [f.upazila, f.district].filter(Boolean).join(', ') || '—';
 
     $('drawerTitle').textContent = f.farm;
     $('drawerBody').innerHTML = `
       <div class="mapx-who">
-        <div class="avatar">${esc(f.name.charAt(0))}</div>
+        <div class="avatar">${escapeHtml([...(f.name || 'ম')][0])}</div>
         <div>
-          <b>${esc(f.name)}</b>
-          <span>${esc(f.upazila)}, ${esc(f.district)} · ${esc(f.type)}</span>
+          <b>${escapeHtml(f.name)}</b>
+          <span>${escapeHtml(place)} · ${escapeHtml(f.type || '')}</span>
         </div>
       </div>
 
       <div class="mapx-kv">
-        <div><span>বাক্স</span><b>${bn(f.hives)}</b></div>
-        <div><span>সক্রিয় কলোনি</span><b>${bn(active)}</b></div>
-        <div><span>এই মৌসুমে মধু</span><b>${bn(honey)} কেজি</b></div>
+        <div><span>বাক্স</span><b>${bn(f.hives || 0)}</b></div>
+        <div><span>সক্রিয় কলোনি</span><b>${bn(f.activeBoxes || 0)}</b></div>
+        <div><span>মোট মধু</span><b>${bn(f.honeyProduced || 0)} কেজি</b></div>
         <div><span>অভিজ্ঞতা</span><b>${bn(f.exp || 0)} বছর</b></div>
       </div>
 
       <div class="mapx-sec">
         <span class="mapx-label">ফুলের উৎস</span>
-        <div class="chips">${(f.flora || []).map((x) => `<span class="pill gray">${esc(x)}</span>`).join('')}</div>
+        <div class="chips">${(f.flora || []).length ? f.flora.map((x) => `<span class="pill gray">${escapeHtml(x)}</span>`).join('') : '<span class="mapx-muted">এখনো জানানো হয়নি</span>'}</div>
       </div>
 
       <div class="mapx-sec">
         <span class="mapx-label">এলাকা</span>
         ${risk
-          ? `<p class="mapx-flag red">${esc(f.upazila)}-এ ${esc(risk.disease)} পাওয়া গেছে (${bn(risk.farms)}টি খামার)। <a href="alerts.html">সতর্কতা দেখুন</a></p>`
-          : `<p class="mapx-flag">এই এলাকায় এখন কোনো রোগের সতর্কতা নেই।</p>`}
-        <p class="mapx-muted">১৫ কিমি-র মধ্যে আরও ${bn(near)} টি খামার · ${bn(f.lat.toFixed(4))}, ${bn(f.lng.toFixed(4))}</p>
+          ? `<p class="mapx-flag red">${escapeHtml(f.upazila)}-এ ${escapeHtml(risk.disease)} পাওয়া গেছে (${bn(risk.farms || 0)}টি খামার)। <a href="alerts.html">সতর্কতা দেখুন</a></p>`
+          : '<p class="mapx-flag">এই এলাকায় এখন কোনো রোগের সতর্কতা নেই।</p>'}
+        ${hasPoint(f) ? `<p class="mapx-muted">১৫ কিমি-র মধ্যে আরও ${bn(near)} টি খামার · ${bn(f.lat.toFixed(4))}, ${bn(f.lng.toFixed(4))}</p>` : ''}
       </div>
 
       <div class="mapx-actions">
-        ${phone ? `<a class="btn dark block" href="tel:${esc(phone)}">ফোন করুন · ${esc(bn(f.phone))}</a>` : ''}
-        <a class="btn ghost block" target="_blank" rel="noopener" href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%3B${f.lat}%2C${f.lng}">পথ দেখুন (OpenStreetMap)</a>
-        <a class="btn ghost block" href="directory.html">খামারি তালিকায় দেখুন</a>
+        ${phone ? `<a class="btn dark block" href="tel:${escapeHtml(phone)}">ফোন করুন · ${escapeHtml(bn(f.phone))}</a>` : ''}
+        ${hasPoint(f) ? `<a class="btn ghost block" target="_blank" rel="noopener" href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%3B${f.lat}%2C${f.lng}">পথ দেখুন (OpenStreetMap)</a>` : ''}
+        <a class="btn ghost block" href="profile.html?farmer=${encodeURIComponent(f.id)}">প্রোফাইল দেখুন</a>
       </div>`;
     $('drawerBackdrop').classList.add('open');
 
@@ -538,22 +543,64 @@ function startMap() {
   $('drawerCloseBtn').addEventListener('click', closeFarmer);
   $('drawerBackdrop').addEventListener('click', (e) => { if (e.target === $('drawerBackdrop')) closeFarmer(); });
 
-  /* ---------- new farmer + pick location ---------- */
+  /* ---------- আমার খামারগুলো (শুধু খামারির জন্য) ---------- */
+  // ম্যাপের বড় pin প্রতি খামারির প্রথম খামারে বসে; নিজের সব খামার আলাদা ছোট দাগে দেখায়
+  const myFarmsLayer = L.layerGroup().addTo(map);
+  function renderMyFarms() {
+    myFarmsLayer.clearLayers();
+    if (!isFarmer) return;
+    FARMS.forEach((f) => {
+      if (typeof f.lat !== 'number' || typeof f.lng !== 'number') return;
+      L.circleMarker([f.lat, f.lng], { radius: 6, color: '#1F1B16', weight: 2, fillColor: '#F2B632', fillOpacity: 1 })
+        .bindTooltip(`আমার খামার: <b>${escapeHtml(f.name)}</b>`, { direction: 'top', className: 'mapx-tip' })
+        .addTo(myFarmsLayer);
+    });
+  }
+  renderMyFarms();
+
+  /* ---------- নিজের খামারের অবস্থান বদল: PATCH /api/farms/<id>/ ---------- */
   let picked = null;        // [lat, lng] — ম্যাপে বাছাই করা জায়গা
   let pickMarker = null;
 
+  const canLocate = isFarmer && FARMS.length > 0;
+  // .btn-এর display নিয়ম hidden attribute-কে ছাপিয়ে যায়, তাই সরাসরি style
+  $('openRegisterBtn').style.display = canLocate ? '' : 'none';
+  if (canLocate) {
+    $('regFarm').innerHTML = FARMS.map((f) => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.name)}</option>`).join('');
+  }
+  const selectedFarm = () => FARMS.find((f) => String(f.id) === $('regFarm').value);
+
+  function showLocText() {
+    const f = selectedFarm();
+    if (picked) {
+      $('regLocText').textContent = `নতুন: ${bn(picked[0].toFixed(4))}, ${bn(picked[1].toFixed(4))}`;
+    } else if (f && typeof f.lat === 'number') {
+      $('regLocText').textContent = `এখন: ${bn(f.lat.toFixed(4))}, ${bn(f.lng.toFixed(4))} (${f.upazila || f.district || ''})`;
+    } else {
+      $('regLocText').textContent = 'এখনো অবস্থান দেওয়া হয়নি';
+    }
+  }
+
   function openRegister() {
-    if (!$('regUpazila').options.length) fillUpazilas('regDistrict', 'regUpazila');
+    if (!canLocate) return;
+    $('regErr').textContent = '';
+    showLocText();
     $('registerModal').classList.add('open');
   }
   function closeRegister() { $('registerModal').classList.remove('open'); }
-  $('regDistrict').addEventListener('change', () => fillUpazilas('regDistrict', 'regUpazila'));
+  function clearPick() {
+    picked = null;
+    if (pickMarker) { pickMarker.remove(); pickMarker = null; }
+  }
+  $('regFarm').addEventListener('change', () => { clearPick(); showLocText(); });
   $('openRegisterBtn').addEventListener('click', openRegister);
-  $('modalCloseBtn').addEventListener('click', closeRegister);
-  $('modalCancelBtn').addEventListener('click', closeRegister);
+  $('modalCloseBtn').addEventListener('click', () => { closeRegister(); clearPick(); });
+  $('modalCancelBtn').addEventListener('click', () => { closeRegister(); clearPick(); });
 
   $('pickOnMap').addEventListener('click', () => {
     closeRegister();
+    const f = selectedFarm();
+    if (f && typeof f.lat === 'number') map.flyTo([f.lat, f.lng], Math.max(map.getZoom(), 11), { duration: 0.5 });
     $('pickBar').hidden = false;
     map.getContainer().classList.add('picking');
   });
@@ -570,64 +617,47 @@ function startMap() {
     picked = [e.latlng.lat, e.latlng.lng];
     if (pickMarker) pickMarker.remove();
     pickMarker = L.circleMarker(picked, { radius: 8, color: '#1F1B16', weight: 3, fillColor: '#F2B632', fillOpacity: 1 }).addTo(map);
-    $('regLocText').textContent = `${bn(picked[0].toFixed(4))}, ${bn(picked[1].toFixed(4))}`;
     openRegister();
-    // OpenStreetMap থেকে জায়গার নাম (reverse geocoding)
+    // OpenStreetMap থেকে জায়গার নাম (reverse geocoding) — শুধু দেখানোর জন্য
     try {
       const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=bn&lat=${picked[0]}&lon=${picked[1]}`);
       const d = await r.json();
-      if (d && d.display_name) {
+      if (picked && d && d.display_name) {
         $('regLocText').textContent = d.display_name.split(',').slice(0, 3).join(',') + ` (${bn(picked[0].toFixed(3))}, ${bn(picked[1].toFixed(3))})`;
-        matchDistrict(d.address || {});
       }
     } catch (err) { /* নাম না পেলেও coordinate থাকছে */ }
   });
 
-  // reverse geocode-এর জেলা/উপজেলা আমাদের তালিকায় থাকলে নিজে থেকে বেছে দেয়
-  function matchDistrict(a) {
-    const text = [a.state_district, a.county, a.city, a.town, a.suburb, a.village].filter(Boolean).join(' ');
-    const d = DISTRICTS.find((x) => text.includes(x));
-    if (!d) return;
-    $('regDistrict').value = d;
-    fillUpazilas('regDistrict', 'regUpazila');
-    const u = Object.keys(DISTRICT_COORDS[d].upazilas).find((x) => text.includes(x));
-    if (u) $('regUpazila').value = u;
-  }
-
-  $('registerForm').addEventListener('submit', (e) => {
+  $('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const fd = new FormData(e.target);
-    const district = fd.get('district'), upazila = fd.get('upazila');
-
-    let lat, lng;
-    if (picked) [lat, lng] = picked;
-    else {
-      const D = DISTRICT_COORDS[district];
-      [lat, lng] = (D && D.upazilas[upazila]) || (D ? [D.lat, D.lng] : [23.75, 90.3]);
-      lat += (Math.random() - 0.5) * 0.015;   // একই উপজেলার pin যেন একটার উপর আরেকটা না পড়ে
-      lng += (Math.random() - 0.5) * 0.015;
+    const f = selectedFarm();
+    if (!f) { $('regErr').textContent = 'খামার বেছে নিন'; return; }
+    if (!picked) { $('regErr').textContent = 'আগে "ম্যাপে বাছুন" চেপে জায়গাটা দেখিয়ে দিন'; return; }
+    $('regSave').disabled = true;
+    $('regErr').textContent = '';
+    try {
+      // ডাটাবেজের chk_farm_point_in_bd CHECK বাংলাদেশের বাইরের বিন্দু আটকায়
+      await API.patch(`farms/${f.id}/`, {
+        lat: Number(picked[0].toFixed(6)),
+        lng: Number(picked[1].toFixed(6))
+      });
+      const farmName = f.name;
+      await MK.load('farms');
+      fill(FARMERS, await API.get('map-farmers/'));
+      closeRegister();
+      clearPick();
+      renderMyFarms();
+      render();
+      toast(`${farmName}-এর অবস্থান সংরক্ষণ হয়েছে`);
+      const mine = FARMERS.find((x) => x.id === me.id);
+      const updated = FARMS.find((x) => x.id === f.id);
+      if (updated && typeof updated.lat === 'number') map.flyTo([updated.lat, updated.lng], 12, { duration: 0.6 });
+      if (mine) openFarmer(mine);
+    } catch (ex) {
+      $('regErr').textContent = ex.message || 'অবস্থান সংরক্ষণ হয়নি';
+    } finally {
+      $('regSave').disabled = false;
     }
-
-    const hives = Number(fd.get('hives')) || 40;
-    const saved = saveRegisteredFarmer({
-      name: fd.get('name').trim(), farm: fd.get('farm').trim(), phone: fd.get('phone').trim(),
-      district, upazila, type: fd.get('type'), hives, flora: [fd.get('flora')],
-      exp: Number(fd.get('exp')) || 0, lat, lng,
-      honeyProduced: 0, activeBoxes: hives, rating: null,
-      regDate: new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })
-    });
-    FARMERS = getStoredFarmers();
-
-    closeRegister();
-    e.target.reset();
-    picked = null;
-    if (pickMarker) { pickMarker.remove(); pickMarker = null; }
-    $('regLocText').textContent = 'উপজেলার কেন্দ্র ব্যবহার হবে';
-    fillUpazilas('regDistrict', 'regUpazila');
-
-    toast(`${saved.name} যুক্ত হয়েছেন`);
-    render();
-    focusFarmer(saved);
   });
 
   document.addEventListener('keydown', (e) => {
@@ -637,69 +667,12 @@ function startMap() {
   });
 
   /* ---------- start ---------- */
-  function injectCurrentSessionFarmer() {
-    const me = (typeof Session !== 'undefined' && Session.get()) ? Session.get() : null;
-    if (me && me.role !== 'cropper') {
-      const exists = FARMERS.find(f => (me.phone && f.phone === me.phone) || (me.farm && f.farm === me.farm));
-      if (!exists && me.district) {
-        const coord = typeof getGeoCoord === 'function' ? getGeoCoord(me.district, me.upazila) : [24.0, 89.8];
-        const newEntry = {
-          id: FARMERS.length + 100,
-          name: me.name || 'খামারি',
-          phone: me.phone || '',
-          farm: me.farm || (me.name + '-এর খামার'),
-          district: me.district,
-          upazila: me.upazila || 'সদর',
-          type: me.type || 'স্থায়ী',
-          hives: 0,
-          flora: ['সরিষা', 'মিশ্র ফুল'],
-          exp: me.exp || 1,
-          lat: coord[0],
-          lng: coord[1],
-          honeyProduced: 0,
-          activeBoxes: 0,
-          rating: 5.0,
-          regDate: 'এইমাত্র'
-        };
-        FARMERS.unshift(newEntry);
-      }
-    }
-  }
-
-  injectCurrentSessionFarmer();
   render();
 
-  async function syncBackendFarmers() {
-    try {
-      const resp = await fetch('http://127.0.0.1:8000/api/map-farmers/');
-      if (resp.ok) {
-        const backendList = await resp.json();
-        if (Array.isArray(backendList) && backendList.length > 0) {
-          backendList.forEach((bf) => {
-            if (!bf.lat || !bf.lng) {
-              const coord = typeof getGeoCoord === 'function' ? getGeoCoord(bf.district, bf.upazila) : [24.0, 89.8];
-              bf.lat = coord[0];
-              bf.lng = coord[1];
-            }
-            const idx = FARMERS.findIndex(f => (bf.phone && f.phone === bf.phone) || (f.id === bf.id));
-            if (idx >= 0) {
-              FARMERS[idx] = { ...FARMERS[idx], ...bf };
-            } else {
-              FARMERS.unshift(bf);
-            }
-          });
-          render();
-        }
-      }
-    } catch (err) {
-      console.log('Backend map sync note:', err);
-    }
-  }
-
-  syncBackendFarmers();
-  const target = Number(new URLSearchParams(location.search).get('farmer'));
-  const t = target && FARMERS.find((x) => x.id === target);
-  if (t && t.lat) setTimeout(() => focusFarmer(t), 300);
+  // directory.html / profile থেকে ?farmer=<id> দিয়ে এলে সেই খামারি
+  const target = new URLSearchParams(location.search).get('farmer');
+  const t = target && FARMERS.find((x) => String(x.id) === target);
+  if (t) setTimeout(() => focusFarmer(t), 300);
   // sidebar/লেআউট বদলালে ম্যাপের মাপ ঠিক রাখা
   new ResizeObserver(() => map.invalidateSize()).observe($('map'));
 }

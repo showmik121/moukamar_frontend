@@ -93,11 +93,10 @@
 <script src="js/store.js"></script>
 <script src="js/app.js"></script>
 <script>
-  // ?farmer=<নাম> থাকলে খামারি তালিকা থেকে অন্য খামারির প্রোফাইল (শুধু দেখা যায়)
-  const otherName = new URLSearchParams(location.search).get('farmer');
-  const other = otherName ? FARMERS.find((f) => f.name === otherName) : null;
-  const me = Session.get() || {};
-  const initial = (name) => [...String(name).replace(/^(মো\.|মোছা\.|মোঃ)\s*/, '')][0] || 'ম';
+  // ?farmer=<id> (বা নাম) থাকলে খামারি তালিকা থেকে অন্য খামারির প্রোফাইল (শুধু দেখা যায়)
+  const otherKey = new URLSearchParams(location.search).get('farmer');
+  const initial = (name) => [...String(name || '').replace(/^(মো\.|মোছা\.|মোঃ)\s*/, '')][0] || 'ম';
+  const statHtml = (s, big) => `<div class="stat"><div class="k">${escapeHtml(s.k)}</div><div class="v ${s.cls || ''}"${big ? ' style="font-size:18px"' : ''}>${escapeHtml(s.v)}</div></div>`;
 
   function renderHead(p, isFarmer) {
     document.getElementById('avatar').textContent = initial(p.name);
@@ -105,41 +104,59 @@
     document.getElementById('pMeta').textContent = [isFarmer ? 'খামারি' : 'কৃষক', [p.upazila, p.district].filter(Boolean).join(', '), p.farm, p.type].filter(Boolean).join(' · ');
   }
 
-  if (other) {
-    // ---- অন্য খামারির প্রোফাইল ----
+  MK.start(otherKey ? ['farmers'] : ['farms', 'hives', 'inspections'], async (me) => {
+    if (otherKey) return renderOther();
+    return renderMine(me);
+  });
+
+  function renderOther() {
+    const other = FARMERS.find((f) => String(f.id) === otherKey || f.name === otherKey);
+    // .row-এর display:flex [hidden]-কে হারিয়ে দেয়, তাই সরাসরি display
+    document.getElementById('editArea').style.display = 'none';
+    if (!other) {
+      document.getElementById('pageTitle').textContent = 'খামারি পাওয়া যায়নি';
+      document.getElementById('pageSub').innerHTML = '<a href="directory.html">খামারি তালিকায় ফিরুন</a>';
+      return;
+    }
     document.title = other.name + ' — মৌখামার';
     document.getElementById('pageTitle').textContent = other.name;
     document.getElementById('pageSub').innerHTML = '<a href="directory.html">খামারি তালিকা</a> থেকে';
-    document.getElementById('editArea').hidden = true;
     renderHead(other, true);
     const stats = [
-      { k: 'বাক্স', v: bn(other.hives) },
-      { k: 'অভিজ্ঞতা', v: bn(other.exp) + ' বছর' },
-      { k: 'ধরন', v: other.type },
-      { k: 'ফুলের উৎস', v: other.flora.join(', '), cls: 'honey' }
+      { k: 'বাক্স', v: bn(other.hives || 0) },
+      { k: 'মোট মধু', v: bn(other.honeyProduced || 0) + ' কেজি', cls: 'honey' },
+      { k: 'অভিজ্ঞতা', v: bn(other.exp || 0) + ' বছর' },
+      { k: 'ফুলের উৎস', v: (other.flora || []).join(', ') || '—' },
+      { k: 'মোবাইল', v: other.phone || '—' }
     ];
-    document.getElementById('pStats').innerHTML = stats.map((s) => `<div class="stat"><div class="k">${s.k}</div><div class="v ${s.cls || ''}" style="font-size:18px">${s.v}</div></div>`).join('');
-    document.getElementById('headBtns').innerHTML = `<a class="btn" href="directory.html">← তালিকায় ফিরুন</a>
-      <a class="btn primary" href="#" data-toast="মোবাইল নম্বর দেখানো backend-এ গোপনীয়তা নিয়ম মেনে হবে">যোগাযোগ</a>`;
-  } else {
-    // ---- নিজের প্রোফাইল ----
+    document.getElementById('pStats').innerHTML = stats.map((s) => statHtml(s, true)).join('');
+    document.getElementById('headBtns').innerHTML = '<a class="btn" href="directory.html">← তালিকায় ফিরুন</a>';
+  }
+
+  async function renderMine(me) {
     const isFarmer = me.role !== 'cropper';
     document.querySelectorAll(isFarmer ? '.cropper-only' : '.farmer-only').forEach((el) => el.remove());
     renderHead(me, isFarmer);
 
-    const stats = isFarmer
-      ? [
-          { k: 'খামার', v: bn(FARMS.length) },
-          { k: 'বাক্স', v: bn(HIVES.length) },
-          { k: 'এই মৌসুমে মধু', v: bn(HARVESTS.filter((h) => h.season === 'now').reduce((s, h) => s + h.kg, 0)) + ' কেজি', cls: 'honey' },
-          { k: 'পরিদর্শন', v: bn(INSPECTIONS.length) + 'টা' }
-        ]
-      : [
-          { k: 'পাঠানো স্প্রে-র খবর', v: bn(NOTIFICATIONS.filter((n) => n.kind === 'spray').length) + 'টা' },
-          { k: 'এলাকা', v: me.upazila || '—' },
-          { k: 'প্রধান ফসল', v: me.crop || '—', cls: 'honey' }
-        ];
-    document.getElementById('pStats').innerHTML = stats.map((s) => `<div class="stat"><div class="k">${s.k}</div><div class="v ${s.cls || ''}">${s.v}</div></div>`).join('');
+    let stats;
+    if (isFarmer) {
+      // ড্যাশবোর্ডের মতো একই হিসাব — এ বছরের মধু sp_season_report থেকে
+      const season = await API.get('reports/season/');
+      stats = [
+        { k: 'খামার', v: bn(FARMS.length) },
+        { k: 'বাক্স', v: bn(HIVES.length) },
+        { k: 'এ বছরের মধু', v: bn(season.total_kg || 0) + ' কেজি', cls: 'honey' },
+        { k: 'পরিদর্শন', v: bn(INSPECTIONS.length) + 'টা' }
+      ];
+    } else {
+      const sprays = await API.get('spray-alerts/');
+      stats = [
+        { k: 'পাঠানো স্প্রে-র খবর', v: bn(sprays.length) + 'টা' },
+        { k: 'এলাকা', v: me.upazila || '—' },
+        { k: 'প্রধান ফসল', v: me.crop || '—', cls: 'honey' }
+      ];
+    }
+    document.getElementById('pStats').innerHTML = stats.map((s) => statHtml(s)).join('');
     document.getElementById('headBtns').innerHTML = isFarmer
       ? '<a class="btn" href="hives.html">আমার খামার</a>'
       : '<a class="btn primary" href="alerts.html#spray">স্প্রে-র খবর দিন</a>';
@@ -150,29 +167,19 @@
     const upazilaSel = document.getElementById('upazila');
     const districts = Object.keys(LOCATIONS);
     if (me.district && !districts.includes(me.district)) districts.unshift(me.district);
-    districtSel.innerHTML = districts.map((d) => `<option>${d}</option>`).join('');
+    districtSel.innerHTML = districts.map((d) => `<option>${escapeHtml(d)}</option>`).join('');
     function fillUpazilas(selected) {
       const list = (LOCATIONS[districtSel.value] || []).slice();
       if (selected && !list.includes(selected)) list.unshift(selected);
-      upazilaSel.innerHTML = list.map((u) => `<option>${u}</option>`).join('');
+      upazilaSel.innerHTML = list.map((u) => `<option>${escapeHtml(u)}</option>`).join('');
       if (selected) upazilaSel.value = selected;
     }
     districtSel.value = me.district || districts[0];
     fillUpazilas(me.upazila);
     districtSel.addEventListener('change', () => fillUpazilas());
-    ['name', 'phone', 'farm', 'type', 'exp', 'crop'].forEach((k) => { if (form.elements[k] && me[k] !== undefined) form.elements[k].value = me[k]; });
-
-    // ব্যবহারকারীর সংরক্ষিত কপি (demo user বদলালে USERS-এ কপি রাখা হয়)
-    function storedUser() {
-      let u = USERS.find((x) => x.phone === me.phone);
-      if (!u) {
-        const demo = DEMO_USERS.find((x) => x.phone === me.phone);
-        if (!demo) return null;
-        u = Object.assign({}, demo);
-        USERS.push(u);
-      }
-      return u;
-    }
+    ['name', 'phone', 'farm', 'type', 'exp', 'crop'].forEach((k) => {
+      if (form.elements[k] && me[k] !== undefined && me[k] !== null && me[k] !== '') form.elements[k].value = me[k];
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -184,15 +191,15 @@
       if (isFarmer) Object.assign(changes, { farm: String(f.farm).trim(), type: f.type, exp: Number(f.exp) || 0 });
       else changes.crop = f.crop;
 
-      if (API.useBackend) {
-        try { await API.patch('me/', changes); } catch (ex) { err.textContent = 'সংরক্ষণ হয়নি, আবার চেষ্টা করুন'; return; }
-      } else {
-        const u = storedUser();
-        if (u) Object.assign(u, changes);
-        Store.save();
+      try {
+        // আগে ভুল ঠিকানায় ('me/') যেত, আর backend ছাড়া শুধু localStorage বদলাত
+        const updated = await API.patch('auth/me/', changes);
+        Session.set(updated);
+      } catch (ex) {
+        err.textContent = ex.message || 'সংরক্ষণ হয়নি, আবার চেষ্টা করুন';
+        return;
       }
       err.textContent = '';
-      Session.set(Object.assign({}, me, changes));
       toast('প্রোফাইল সংরক্ষণ হয়েছে');
       setTimeout(() => location.reload(), 600);
     });
@@ -203,14 +210,11 @@
       const f = Object.fromEntries(new FormData(e.target));
       if (String(f.new1).length < 6) { err.textContent = 'নতুন পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে'; return; }
       if (f.new1 !== f.new2) { err.textContent = 'দুই নতুন পাসওয়ার্ড মেলেনি'; return; }
-      if (API.useBackend) {
-        try { await API.post('auth/password/', { old_password: f.old, new_password: f.new1 }); }
-        catch (ex) { err.textContent = 'বর্তমান পাসওয়ার্ড ভুল'; return; }
-      } else {
-        const u = storedUser();
-        if (!u || u.password !== f.old) { err.textContent = 'বর্তমান পাসওয়ার্ড ভুল'; return; }
-        u.password = f.new1;
-        Store.save();
+      try {
+        await API.post('auth/password/', { old_password: f.old, new_password: f.new1 });
+      } catch (ex) {
+        err.textContent = ex.message || 'বর্তমান পাসওয়ার্ড ভুল';
+        return;
       }
       err.textContent = '';
       e.target.reset();

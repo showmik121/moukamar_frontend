@@ -15,6 +15,11 @@
   .mini-frames i { width: 6px; height: 16px; border-radius: 2px; background: var(--line-2); }
   .mini-frames i.full { background: var(--honey); }
   .late { color: var(--red); font-weight: 600; }
+  dialog { border: none; border-radius: 16px; padding: 24px; width: min(480px, 92vw); box-shadow: 0 24px 64px rgba(31, 27, 22, .28); }
+  dialog::backdrop { background: rgba(31, 27, 22, .45); }
+  dialog form { display: flex; flex-direction: column; gap: 12px; }
+  dialog h2 { margin: 0 0 4px; }
+  dialog .row { flex-wrap: nowrap; }
 </style>
 </head>
 <body>
@@ -53,7 +58,7 @@
 </div>
 
 <dialog id="addDialog" aria-labelledby="addTitle">
-  <form method="dialog" id="addForm">
+  <form method="dialog" id="addForm" novalidate>
     <h2 id="addTitle">নতুন বাক্স যোগ করুন</h2>
     <label class="field">বাক্সের code
       <input name="code" required placeholder="যেমন MK-040">
@@ -64,9 +69,19 @@
     <label class="field">প্রজাতি
       <select name="species"><option>Apis mellifera</option><option>Apis cerana</option></select>
     </label>
-    <label class="field">ফ্রেম সংখ্যা
-      <input name="frames" type="number" min="1" max="20" value="10" required>
+    <div class="row" style="gap:12px">
+      <label class="field grow-1" style="flex-basis:120px">ফ্রেম সংখ্যা
+        <input name="frames" type="number" min="1" max="20" value="10" required>
+      </label>
+      <label class="field grow-1" style="flex-basis:120px">মধুভরা ফ্রেম
+        <input name="filled" type="number" min="0" max="20" value="0">
+      </label>
+    </div>
+    <label class="field">অবস্থা
+      <select name="state"><option>সবল</option><option>দুর্বল</option><option>রানীহীন</option></select>
     </label>
+    <label class="check" style="font-size:15px"><input type="checkbox" name="hasQueen" value="1" checked> বাক্সে রানী আছে</label>
+    <div class="err" id="addErr" role="alert"></div>
     <div class="btns" style="justify-content:flex-end">
       <button class="btn" type="button" id="cancelAdd">বাতিল</button>
       <button class="btn primary" type="submit">যোগ করুন</button>
@@ -91,8 +106,16 @@
     <label class="field">প্রধান ফুল
       <select name="flora" id="farmFlora"></select>
     </label>
-    <label class="field">অবস্থা
-      <select name="status"><option>সক্রিয়</option><option>বিশ্রামে</option></select>
+    <div class="row" style="gap:12px">
+      <label class="field grow-1" style="flex-basis:150px">ধরন
+        <select name="farm_type"><option>স্থায়ী</option><option>ভ্রাম্যমাণ</option></select>
+      </label>
+      <label class="field grow-1" style="flex-basis:150px">অবস্থা
+        <select name="status"><option>সক্রিয়</option><option>বিশ্রামে</option></select>
+      </label>
+    </div>
+    <label class="field">শুরুর তারিখ
+      <input name="since" id="farmSince" type="date">
     </label>
     <div class="err" id="farmErr" role="alert"></div>
     <div class="btns" style="justify-content:flex-end">
@@ -107,144 +130,197 @@
 <script src="js/store.js"></script>
 <script src="js/app.js"></script>
 <script>
+  // খামার: /api/farms/  ·  বাক্স: /api/hives/status/ (v_hive_status ভিউ — রানী, শেষ
+  // পরিদর্শন, পরিদর্শন বাকি কিনা, মোট মধু এক query-তে)। নতুন খামার/বাক্স সরাসরি
+  // backend-এ যায়; আগে শুধু localStorage-এ থাকত আর অন্য কোথাও দেখা যেত না।
+  const esc = escapeHtml;
   const params = new URLSearchParams(location.search);
   let currentFarm = Number(params.get('farm')) || 0; // 0 = সব খামার
 
-  const user = (typeof Session !== 'undefined' && Session.get()) ? Session.get() : null;
-  const isDemo = !user || user.phone === '01712345678' || user.phone === '01812345678';
+  const farmName = (id) => (FARMS.find((f) => f.id === id) || {}).name || '';
+  const stateClass = (s) => (s === 'সবল' ? 'green' : s === 'দুর্বল' ? 'honey' : 'red');
+  const hiveUrl = (code) => 'hive.html?code=' + encodeURIComponent(code);
 
-  let activeFarms = isDemo ? FARMS : FARMS.filter(f => f.ownerPhone === user.phone || f.name === user.farm);
-  if (!isDemo && activeFarms.length === 0 && user.farm) {
-    const newFarm = {
-      id: FARMS.length + 1,
-      name: user.farm,
-      upazila: user.upazila || 'সদর',
-      district: user.district || 'সিরাজগঞ্জ',
-      flora: 'সরিষা ও অন্যান্য',
-      status: 'সক্রিয়',
-      since: 'এইমাত্র',
-      ownerPhone: user.phone
-    };
-    FARMS.push(newFarm);
-    if (typeof Store !== 'undefined') Store.save();
-    activeFarms = [newFarm];
+  MK.start(['farms', 'hives', 'flora'], () => {
+    if (currentFarm && !FARMS.some((f) => f.id === currentFarm)) currentFarm = 0;
+    fillFarmSelect();
+    fillFloraSelect();
+    renderTabs();
+    render();
+  });
+
+  function fillFarmSelect() {
+    document.getElementById('farmSelect').innerHTML = FARMS.length
+      ? FARMS.map((f) => `<option value="${f.id}">${esc(f.name)}</option>`).join('')
+      : '<option value="" disabled selected>আগে একটা খামার যোগ করুন</option>';
   }
 
-  function farmName(id) { return (FARMS.find((f) => f.id === id) || {}).name || ''; }
-
-  function stateClass(s) { return s === 'সবল' ? 'green' : s === 'দুর্বল' ? 'honey' : 'red'; }
+  function fillFloraSelect() {
+    document.getElementById('farmFlora').innerHTML = '<option value="">— পরে বাছবেন —</option>' +
+      FLORA.filter((f) => !f.dearth).map((f) => `<option>${esc(f.name)}</option>`).join('');
+  }
 
   function renderTabs() {
-    const items = [{ id: 0, name: 'সব খামার' }].concat(activeFarms);
+    const items = [{ id: 0, name: 'সব খামার' }].concat(FARMS);
     document.getElementById('tabs').innerHTML = items.map((f) =>
-      `<button type="button" aria-pressed="${f.id === currentFarm}" data-id="${f.id}">${f.name}</button>`).join('');
+      `<button type="button" aria-pressed="${f.id === currentFarm}" data-id="${f.id}">${esc(f.name)}</button>`).join('');
   }
 
   function render() {
     const onlyProblem = document.getElementById('onlyProblem').checked;
-    const activeFarmIds = activeFarms.map(f => f.id);
-    let list = (isDemo ? HIVES : HIVES.filter(h => activeFarmIds.includes(h.farm)))
-      .filter((h) => !currentFarm || h.farm === currentFarm);
-    const all = list;
-    if (onlyProblem) list = list.filter((h) => h.state !== 'সবল' || h.last > 14);
+    const all = HIVES.filter((h) => !currentFarm || h.farm === currentFarm);
+    const list = onlyProblem ? all.filter((h) => h.state !== 'সবল' || h.queen === 'নেই' || h.overdue) : all;
 
     const farm = FARMS.find((f) => f.id === currentFarm);
     document.getElementById('tableTitle').textContent = farm ? farm.name + '-এর বাক্স' : 'সব বাক্স';
     document.getElementById('summary').textContent = farm
-      ? `${farm.upazila}, ${farm.district} · ${farm.flora} · এখানে আছে ${farm.since} থেকে`
-      : `${bn(activeFarms.length)}টা খামার · মোট ${bn(all.length)}টা বাক্স`;
+      ? [[farm.upazila, farm.district].filter(Boolean).join(', '), farm.flora !== '—' ? farm.flora : '',
+         farm.type, farm.status, farm.established ? MK.date(farm.established) + ' থেকে' : ''].filter(Boolean).join(' · ')
+      : (FARMS.length ? `${bn(FARMS.length)}টা খামার · মোট ${bn(all.length)}টা বাক্স` : 'এখনো কোনো খামার নেই — "নতুন খামার" দিয়ে শুরু করুন');
 
+    const honey = all.reduce((t, h) => t + (h.honeyKg || 0), 0);
     const stats = [
       { k: 'বাক্স', v: bn(all.length) },
       { k: 'সবল', v: bn(all.filter((h) => h.state === 'সবল').length) },
       { k: 'দুর্বল', v: bn(all.filter((h) => h.state === 'দুর্বল').length), cls: 'honey' },
       { k: 'রানীহীন', v: bn(all.filter((h) => h.queen === 'নেই').length), cls: 'red' },
-      { k: 'আনুমানিক মধু বাক্সে', v: bn(all.reduce((t, h) => t + h.filled * 2, 0)) + ' কেজি', cls: 'honey' }
+      { k: 'মোট মধু সংগ্রহ', v: bn(Math.round(honey * 10) / 10) + ' কেজি', cls: 'honey' }
     ];
     document.getElementById('farmStats').innerHTML = stats.map((s) =>
       `<div class="stat"><div class="k">${s.k}</div><div class="v ${s.cls || ''}">${s.v}</div></div>`).join('');
 
     document.getElementById('rows').innerHTML = list.length ? list.map((h) => {
       const frames = Array.from({ length: h.frames }, (_, i) => `<i class="${i < h.filled ? 'full' : ''}"></i>`).join('');
-      const queen = h.queen === 'নেই' ? '<span class="pill red">নেই</span>' : `আছে · ${bn(h.queenAge)} বছর${h.queenAge > 2 ? ' <span class="pill honey">বদল দরকার</span>' : ''}`;
-      const last = h.last > 14 ? `<span class="late">${bn(h.last)} দিন আগে</span>` : `${bn(h.last)} দিন আগে`;
-      return `<tr class="link-row" onclick="location.href='hive.html?code=${h.code}'">
-        <td><a href="hive.html?code=${h.code}"><b>${h.code}</b></a></td>
-        <td>${farmName(h.farm)}</td><td>${h.species}</td><td>${queen}</td>
+      const queen = h.queen === 'নেই'
+        ? '<span class="pill red">নেই</span>'
+        : `আছে · ${h.queenAge ? bn(h.queenAge) + ' বছর' : '১ বছরের কম'}${h.queenAge >= 2 ? ' <span class="pill honey">বদল দরকার</span>' : ''}`;
+      const last = h.last == null ? '<span class="late">হয়নি</span>'
+        : h.overdue ? `<span class="late">${bn(h.last)} দিন আগে</span>` : `${bn(h.last)} দিন আগে`;
+      return `<tr class="link-row" data-code="${esc(h.code)}">
+        <td><a href="${hiveUrl(h.code)}"><b>${esc(h.code)}</b></a></td>
+        <td>${esc(h.farmName || farmName(h.farm))}</td><td>${esc(h.species)}</td><td>${queen}</td>
         <td><span class="mini-frames" aria-hidden="true">${frames}</span>${bn(h.filled)} / ${bn(h.frames)}</td>
-        <td><span class="pill ${stateClass(h.state)}">${h.state}</span></td><td>${last}</td></tr>`;
-    }).join('') : '<tr><td colspan="7" class="empty">কোনো বাক্স পাওয়া যায়নি। নতুন বাক্স যোগ করুন।</td></tr>';
+        <td><span class="pill ${stateClass(h.state)}">${esc(h.state)}</span></td><td>${last}</td></tr>`;
+    }).join('') : `<tr><td colspan="7" class="empty">${onlyProblem && all.length ? 'কোনো সমস্যাযুক্ত বাক্স নেই।' : 'কোনো বাক্স পাওয়া যায়নি। নতুন বাক্স যোগ করুন।'}</td></tr>`;
   }
 
+  document.getElementById('rows').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-code]');
+    if (tr && !e.target.closest('a')) location.href = hiveUrl(tr.dataset.code);
+  });
   document.getElementById('tabs').addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     currentFarm = Number(b.dataset.id);
+    history.replaceState(null, '', currentFarm ? `hives.html?farm=${currentFarm}` : 'hives.html');
     renderTabs();
     render();
   });
   document.getElementById('onlyProblem').addEventListener('change', render);
 
-  // নতুন বাক্স যোগ (এখন শুধু page-এ; backend-এ INSERT INTO hives হবে)
+  // ---- নতুন বাক্স — POST /api/hives/ ----
   const dlg = document.getElementById('addDialog');
-  document.getElementById('farmSelect').innerHTML = FARMS.map((f) => `<option value="${f.id}">${f.name}</option>`).join('');
+  const addErr = document.getElementById('addErr');
   document.getElementById('openAdd').addEventListener('click', () => {
+    if (!FARMS.length) { toast('আগে একটা খামার যোগ করুন'); return; }
     if (currentFarm) document.getElementById('farmSelect').value = currentFarm;
+    addErr.textContent = '';
     dlg.showModal();
   });
   document.getElementById('cancelAdd').addEventListener('click', () => dlg.close());
-  document.getElementById('addForm').addEventListener('submit', (e) => {
-    const f = new FormData(e.target);
+  document.getElementById('addForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const f = new FormData(form);
     const code = String(f.get('code')).trim().toUpperCase();
-    if (HIVES.some((h) => h.code === code)) {
-      e.preventDefault();
-      toast('এই code-এর বাক্স আগে থেকেই আছে');
-      return;
+    const frames = Number(f.get('frames'));
+    const filled = Number(f.get('filled')) || 0;
+    if (!code) { addErr.textContent = 'বাক্সের code লিখুন'; return; }
+    if (HIVES.some((h) => h.code === code)) { addErr.textContent = 'এই code-এর বাক্স আগে থেকেই আছে'; return; }
+    if (!(frames >= 1 && frames <= 20)) { addErr.textContent = 'ফ্রেম সংখ্যা ১ থেকে ২০'; return; }
+    if (filled < 0 || filled > frames) { addErr.textContent = 'ভরা ফ্রেম মোট ফ্রেমের বেশি হতে পারে না'; return; }
+
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try {
+      const hive = await API.post('hives/', {
+        code, farm: Number(f.get('farm')), species: f.get('species'),
+        frames, filled, state: f.get('state') || 'সবল', installed_on: isoDate()
+      });
+      // রানী থাকলে sp_new_queen দিয়ে চলতি রানী বসানো — নাহলে বাক্সটা "রানীহীন" দেখাবে
+      if (f.get('hasQueen')) {
+        await API.post(`hives/${encodeURIComponent(code)}/queens/`, {
+          hive: hive.id, source: 'নিজের খামার', color_mark: '', installed_on: isoDate()
+        });
+      }
+      await API.post(`hives/${encodeURIComponent(code)}/events/`, {
+        hive: hive.id, date: isoDate(), kind: 'other', note: `${farmName(hive.farm)}-এ নতুন বাক্স যোগ`
+      }).catch(() => {});
+      dlg.close();
+      form.reset();
+      currentFarm = hive.farm;
+      await MK.load('hives', 'farms');
+      renderTabs();
+      render();
+      toast(code + ' বাক্স যোগ হয়েছে');
+    } catch (ex) {
+      addErr.textContent = ex.message || 'বাক্স যোগ হয়নি';
+    } finally {
+      btn.disabled = false;
     }
-    HIVES.unshift({ code, farm: Number(f.get('farm')), species: f.get('species'), frames: Number(f.get('frames')), filled: 0, state: 'সবল', queen: 'আছে', queenAge: 0, last: 0 });
-    Store.addHiveEvent(code, 'নতুন বাক্স', 'green', `${farmName(Number(f.get('farm')))}-এ নতুন বাক্স যোগ`);
-    Store.save();
-    e.target.reset();
-    render();
-    toast(code + ' বাক্স যোগ হয়েছে');
   });
 
-  // নতুন খামার — backend-এ INSERT INTO apiaries
+  // ---- নতুন খামার — POST /api/farms/ ----
   const farmDlg = document.getElementById('farmDialog');
   const fd = document.getElementById('farmDistrict');
   const fu = document.getElementById('farmUpazila');
-  fd.innerHTML = Object.keys(LOCATIONS).map((d) => `<option>${d}</option>`).join('');
-  const fillFu = () => { fu.innerHTML = LOCATIONS[fd.value].map((u) => `<option>${u}</option>`).join(''); };
+  const farmErr = document.getElementById('farmErr');
+  fd.innerHTML = Object.keys(LOCATIONS).map((d) => `<option>${esc(d)}</option>`).join('');
+  const fillFu = () => { fu.innerHTML = (LOCATIONS[fd.value] || []).map((u) => `<option>${esc(u)}</option>`).join(''); };
   fd.addEventListener('change', fillFu);
-  document.getElementById('farmFlora').innerHTML = FLORA.filter((f) => !f.dearth).map((f) => `<option>${f.name}</option>`).join('') + '<option>মিশ্র ফুল</option>';
   document.getElementById('openFarm').addEventListener('click', () => {
-    const me = currentUser();
+    const me = MK.me || {};
     fd.value = LOCATIONS[me.district] ? me.district : Object.keys(LOCATIONS)[0];
     fillFu();
-    if (me.upazila && LOCATIONS[fd.value].includes(me.upazila)) fu.value = me.upazila;
-    document.getElementById('farmErr').textContent = '';
+    if (me.upazila && (LOCATIONS[fd.value] || []).includes(me.upazila)) fu.value = me.upazila;
+    document.getElementById('farmSince').value = isoDate();
+    farmErr.textContent = '';
     farmDlg.showModal();
   });
   document.getElementById('cancelFarm').addEventListener('click', () => farmDlg.close());
-  document.getElementById('farmForm').addEventListener('submit', (e) => {
-    const f = Object.fromEntries(new FormData(e.target));
+  document.getElementById('farmForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const f = Object.fromEntries(new FormData(form));
     const name = String(f.name).trim();
-    const err = document.getElementById('farmErr');
-    if (name.length < 3) { e.preventDefault(); err.textContent = 'খামারের নাম লিখুন'; return; }
-    if (FARMS.some((x) => x.name === name)) { e.preventDefault(); err.textContent = 'এই নামে খামার আগে থেকেই আছে'; return; }
-    const farm = { id: Store.nextId(FARMS), name, upazila: f.upazila, district: f.district, flora: f.flora, status: f.status, since: todayShort() };
-    FARMS.push(farm);
-    Store.save();
-    e.target.reset();
-    currentFarm = farm.id;
-    document.getElementById('farmSelect').innerHTML = FARMS.map((x) => `<option value="${x.id}">${x.name}</option>`).join('');
-    renderTabs();
-    render();
-    toast(name + ' যোগ হয়েছে');
-  });
+    if (name.length < 3) { farmErr.textContent = 'খামারের নাম লিখুন'; return; }
+    if (FARMS.some((x) => x.name === name)) { farmErr.textContent = 'এই নামে খামার আগে থেকেই আছে'; return; }
 
-  renderTabs();
-  render();
+    // ম্যাপে দেখানোর জন্য জেলার কেন্দ্রের কাছাকাছি একটা বিন্দু (পরে ম্যাপ থেকে ঠিক করা যায়)
+    const [lat, lng] = getGeoCoord(f.district, f.upazila);
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try {
+      const farm = await API.post('farms/', {
+        name, district_name: f.district, upazila: f.upazila, farm_type: f.farm_type,
+        status: f.status, flora_names: f.flora ? [f.flora] : [],
+        established_on: f.since || null,
+        lat: lat.toFixed(6), lng: lng.toFixed(6)
+      });
+      farmDlg.close();
+      form.reset();
+      currentFarm = farm.id;
+      await MK.load('farms');
+      fillFarmSelect();
+      renderTabs();
+      render();
+      toast(name + ' যোগ হয়েছে');
+    } catch (ex) {
+      farmErr.textContent = ex.message || 'খামার যোগ হয়নি';
+    } finally {
+      btn.disabled = false;
+    }
+  });
 </script>
 </body>
 </html>

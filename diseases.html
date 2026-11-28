@@ -77,7 +77,7 @@
   <main class="main">
     <section class="finder" aria-labelledby="findTitle">
       <h2 id="findTitle">রোগ বা লক্ষণ লিখে খুঁজুন</h2>
-      <p>রোগের নাম (বাংলা বা ইংরেজি) অথবা বাক্সে যা দেখছেন তা লিখুন — কেন হয়, কীভাবে ছড়ায় আর কী চিকিৎসা, সব দেখাবে।</p>
+      <p>রোগের নাম অথবা বাক্সে যা দেখছেন তা লিখুন — কীভাবে চিনবেন, কী চিকিৎসা আর কীভাবে প্রতিরোধ, সব দেখাবে।</p>
       <div class="find-box">
         <div class="find-input">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B6358" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -86,13 +86,7 @@
         </div>
         <div class="sugg" id="sugg" role="listbox"></div>
       </div>
-      <div class="popular">বেশি খোঁজা:
-        <button type="button" data-open="varroa">ভ্যারোয়া মাইট</button>
-        <button type="button" data-open="sacbrood">স্যাকব্রুড</button>
-        <button type="button" data-open="afb">ফাউলব্রুড</button>
-        <button type="button" data-open="pesticide">কীটনাশকে বিষক্রিয়া</button>
-        <button type="button" data-open="waxmoth">মোম মথ</button>
-      </div>
+      <div class="popular" id="popular"></div>
     </section>
 
     <section aria-label="ভাগ অনুযায়ী" class="cats" id="cats"></section>
@@ -117,10 +111,10 @@
       </section>
 
       <section class="card grow-2" style="align-self:flex-start">
-        <h2>আপনার এলাকায় গত ৩০ দিন</h2>
-        <div class="sub" style="margin-top:-6px">সিরাজগঞ্জ জেলা · খামারিদের পরিদর্শন থেকে</div>
+        <h2>এলাকায় রোগ — গত ৩০ দিন</h2>
+        <div class="sub" style="margin-top:-6px">খামারিদের পরিদর্শন থেকে, উপজেলা অনুযায়ী</div>
         <div id="outbreaks"></div>
-        <div class="notice honey">একই উপজেলায় একই রোগ ৩টা বা বেশি খামারে পাওয়া গেলে সেই এলাকার সব খামারি নিজে থেকে সতর্কবার্তা পান।</div>
+        <div class="notice honey">একই উপজেলায় একই রোগ ৩টা বা বেশি খামারে পাওয়া গেলে তালিকায় "সতর্কতা" চিহ্ন দেখায়। বেশি ঝুঁকির রোগ পরিদর্শনে লিখলে বাক্সের মালিক সাথে সাথে সতর্কবার্তা পান।</div>
       </section>
     </div>
   </main>
@@ -130,33 +124,49 @@
 <script src="js/store.js"></script>
 <script src="js/app.js"></script>
 <script>
+  // রোগ, লক্ষণ আর রোগ↔লক্ষণ (M:N) সব ডাটাবেজ থেকে: /api/diseases/, /api/symptoms/
   const RISK = { high: ['বেশি', 'red'], mid: ['মাঝারি', 'honey'], low: ['কম', 'green'] };
+  const RISK_ORDER = { high: 0, mid: 1, low: 2 };
   const byId = (id) => DISEASES.find((d) => d.id === id);
+  let me = null;
   let cat = '';
-  let selected = new URLSearchParams(location.search).get('d') || 'varroa';
-  if (!byId(selected)) selected = 'varroa';
-  const picked = new Set(['s1', 's2', 's3']);
+  let selected = '';
+  const picked = new Set();
+
+  MK.start(['diseases', 'outbreaks', 'inspections'], (user) => {
+    me = user;
+    if (!DISEASES.length) {
+      document.querySelector('.dz').innerHTML = '<div class="empty">ডাটাবেজে কোনো রোগের তথ্য নেই</div>';
+      return;
+    }
+    const wanted = new URLSearchParams(location.search).get('d');
+    selected = byId(wanted) ? wanted : sortedByRisk()[0].id;
+    ['s1', 's2', 's3'].forEach((s) => { if (SYMPTOMS[s]) picked.add(s); });
+    renderPopular(); renderCats(); renderList(); renderDetail(); renderSymptoms(); renderMatches(); renderOutbreaks();
+  });
+
+  function sortedByRisk() {
+    return DISEASES.slice().sort((a, b) => (RISK_ORDER[a.risk] ?? 3) - (RISK_ORDER[b.risk] ?? 3));
+  }
 
   // ---------- নাম/লক্ষণ দিয়ে খোঁজা ----------
-  // backend-এ: SELECT ... FROM diseases WHERE name LIKE ? OR name_en LIKE ? UNION লক্ষণ মিলিয়ে
   const input = document.getElementById('find');
   const sugg = document.getElementById('sugg');
   let hits = [];
   let hl = 0;
 
-  function norm(s) { return String(s).toLowerCase().replace(/\s+/g, ''); }
+  function norm(s) { return String(s || '').toLowerCase().replace(/\s+/g, ''); }
 
   function search(q) {
     const n = norm(q);
     if (!n) return [];
     const out = [];
     DISEASES.forEach((d) => {
-      const names = [d.name, d.en].concat(d.aliases);
-      if (names.some((x) => norm(x).includes(n))) out.push({ d, why: d.en });
+      if ([d.name, d.id, d.kind].some((x) => norm(x).includes(n))) out.push({ d, why: d.kind });
     });
     Object.entries(SYMPTOMS).forEach(([sid, sname]) => {
       if (!norm(sname).includes(n)) return;
-      DISEASES.filter((d) => d.symptoms.includes(sid)).forEach((d) => {
+      DISEASES.filter((d) => (d.symptoms || []).includes(sid)).forEach((d) => {
         if (!out.some((o) => o.d.id === d.id)) out.push({ d, why: 'লক্ষণ: ' + sname });
       });
     });
@@ -168,7 +178,7 @@
     hl = 0;
     if (!input.value.trim()) { sugg.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); return; }
     sugg.innerHTML = hits.length ? hits.map((h, i) =>
-      `<button type="button" role="option" class="${i === hl ? 'hl' : ''}" data-open="${h.d.id}"><span class="rdot ${h.d.risk}"></span><b>${h.d.name}</b><span class="why">${h.why}</span></button>`).join('')
+      `<button type="button" role="option" class="${i === hl ? 'hl' : ''}" data-open="${escapeHtml(h.d.id)}"><span class="rdot ${escapeHtml(h.d.risk)}"></span><b>${escapeHtml(h.d.name)}</b><span class="why">${escapeHtml(h.why)}</span></button>`).join('')
       : '<div class="none">কিছু পাওয়া যায়নি। অন্য নাম বা লক্ষণ লিখে দেখুন, অথবা নিচের তালিকা থেকে বাছুন।</div>';
     sugg.classList.add('open');
     input.setAttribute('aria-expanded', 'true');
@@ -190,90 +200,116 @@
   });
   document.addEventListener('click', (e) => { if (!e.target.closest('.find-box')) sugg.classList.remove('open'); });
 
-  // ---------- ভাগ ----------
+  // বেশি ঝুঁকির রোগগুলো আগে
+  function renderPopular() {
+    document.getElementById('popular').innerHTML = 'দ্রুত দেখুন:' + sortedByRisk().slice(0, 5).map((d) =>
+      ` <button type="button" data-open="${escapeHtml(d.id)}">${escapeHtml(d.name)}</button>`).join('');
+  }
+
+  // ---------- ভাগ (রোগের ধরন অনুযায়ী) ----------
+  function kinds() { return [...new Set(DISEASES.map((d) => d.kind).filter(Boolean))]; }
+
   function renderCats() {
     const items = [['', 'সব রোগ ও শত্রু', DISEASES.length]].concat(
-      Object.entries(DISEASE_CATS).map(([k, v]) => [k, v, DISEASES.filter((d) => d.cat === k).length]));
+      kinds().map((k) => [k, k, DISEASES.filter((d) => d.kind === k).length]));
     document.getElementById('cats').innerHTML = items.map(([k, label, n]) =>
-      `<button type="button" aria-pressed="${k === cat}" data-cat="${k}"><span>${label}</span><b>${bn(n)}টা</b></button>`).join('');
+      `<button type="button" aria-pressed="${k === cat}" data-cat="${escapeHtml(k)}"><span>${escapeHtml(label)}</span><b>${bn(n)}টা</b></button>`).join('');
   }
   document.getElementById('cats').addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     cat = b.dataset.cat;
     renderCats(); renderList();
-    const first = DISEASES.find((d) => !cat || d.cat === cat);
-    if (first && cat && byId(selected).cat !== cat) open(first.id);
+    const first = DISEASES.find((d) => !cat || d.kind === cat);
+    if (first && cat && byId(selected).kind !== cat) open(first.id);
   });
 
   function renderList() {
-    const list = DISEASES.filter((d) => !cat || d.cat === cat);
+    const list = DISEASES.filter((d) => !cat || d.kind === cat);
     document.getElementById('dlist').innerHTML = list.map((d) =>
-      `<button type="button" data-open="${d.id}" aria-current="${d.id === selected}"><span class="rdot ${d.risk}" aria-hidden="true"></span>
-        <span class="nm"><b>${d.name}</b><span>${DISEASE_CATS[d.cat]}</span></span></button>`).join('');
+      `<button type="button" data-open="${escapeHtml(d.id)}" aria-current="${d.id === selected}"><span class="rdot ${escapeHtml(d.risk)}" aria-hidden="true"></span>
+        <span class="nm"><b>${escapeHtml(d.name)}</b><span>${escapeHtml(d.kind)}</span></span></button>`).join('');
   }
 
   // ---------- বিস্তারিত ----------
+  // যার সাথে গুলিয়ে যায় = যেসব রোগের সাথে লক্ষণ বেশি মেলে (disease_symptoms junction থেকে)
+  function similarTo(d) {
+    const mine = new Set(d.symptoms || []);
+    return DISEASES.filter((x) => x.id !== d.id)
+      .map((x) => ({ x, n: (x.symptoms || []).filter((s) => mine.has(s)).length }))
+      .filter((r) => r.n > 0)
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 3)
+      .map((r) => r.x);
+  }
+
   function renderDetail() {
     const d = byId(selected);
-    const r = RISK[d.risk];
-    const li = (arr) => '<ul>' + arr.map((x) => `<li>${x}</li>`).join('') + '</ul>';
-    const mine = INSPECTIONS.filter((i) => i.diseases.includes(d.name));
+    if (!d) return;
+    const r = RISK[d.risk] || ['—', 'gray'];
+    const li = (arr) => (arr && arr.length)
+      ? '<ul>' + arr.map((x) => `<li>${escapeHtml(x)}</li>`).join('') + '</ul>'
+      : '<p class="sub">—</p>';
+    // আমার বাক্সের পরিদর্শনে এই রোগ (inspection_diseases junction)
+    const mine = INSPECTIONS.filter((i) => (i.diseases || []).some((x) => x.code === d.id));
+    const myHives = [...new Set(mine.map((i) => i.hive))];
     const area = OUTBREAKS.find((o) => o.disease === d.name);
+    const similar = similarTo(d);
+    const symptomNames = (d.symptoms || []).map((s) => SYMPTOMS[s]).filter(Boolean);
+
     document.getElementById('detail').innerHTML = `
       <div class="d-head">
         <div>
-          <div class="sub">${DISEASE_CATS[d.cat]}</div>
-          <h2>${d.name}</h2>
-          <div class="en">${d.en}</div>
+          <div class="sub">${escapeHtml(d.kind)}</div>
+          <h2>${escapeHtml(d.name)}</h2>
+          <div class="en">${escapeHtml(d.id)}</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <span class="pill lg ${r[1]}">ঝুঁকি: ${r[0]}</span>
-          <span class="pill lg ${d.contagious ? 'red' : 'gray'}">${d.contagious ? 'ছোঁয়াচে' : 'ছোঁয়াচে নয়'}</span>
         </div>
       </div>
 
       <div class="d-facts">
-        <div><span>আক্রান্ত হয়</span><b>${d.stage}</b></div>
-        <div><span>বেশি হয়</span><b>${d.season}</b></div>
-        <div><span>এক বাক্স থেকে আরেকটায়</span><b>${d.contagious ? 'ছড়ায়' : 'ছড়ায় না'}</b></div>
-        <div><span>চিকিৎসার সময় মধু সংগ্রহ</span><b style="color:${d.harvestStop ? 'var(--red)' : 'var(--green)'}">${d.harvestStop ? 'বন্ধ রাখুন' : 'চলতে পারে'}</b></div>
+        <div><span>ধরন</span><b>${escapeHtml(d.kind || '—')}</b></div>
+        <div><span>ঝুঁকি</span><b>${r[0]}</b></div>
+        <div><span>জানা লক্ষণ</span><b>${bn(symptomNames.length)}টা</b></div>
+        <div><span>আপনার বাক্সে পাওয়া গেছে</span><b style="color:${myHives.length ? 'var(--red)' : 'var(--green)'}">${myHives.length ? bn(myHives.length) + 'টা বাক্সে' : 'পাওয়া যায়নি'}</b></div>
       </div>
 
-      <div class="d-sec"><h3>এটা কী</h3><p>${d.what}</p></div>
-      <div class="d-sec"><h3>কেন হয়</h3><p>${d.cause}</p></div>
+      ${d.cause ? `<div class="d-sec"><h3>কেন হয়</h3><p>${escapeHtml(d.cause)}</p></div>` : ''}
+      ${d.spread ? `<div class="d-sec"><h3>কীভাবে ছড়ায়</h3><p>${escapeHtml(d.spread)}</p></div>` : ''}
 
       <div class="d-two">
-        <div class="d-sec"><h3>কীভাবে ছড়ায়</h3>${li(d.spread)}</div>
         <div class="d-sec"><h3>কীভাবে চিনবেন</h3>${li(d.signs)}</div>
+        <div class="d-sec"><h3>লক্ষণ</h3>${symptomNames.length
+          ? `<div class="chips">${symptomNames.map((s) => `<span class="pill gray">${escapeHtml(s)}</span>`).join('')}</div>` : '<p class="sub">—</p>'}</div>
       </div>
 
-      <div class="d-sec"><h3>চিকিৎসা — ধাপে ধাপে</h3><ol class="steps">${d.treat.map((t) => `<li><span>${t}</span></li>`).join('')}</ol></div>
+      <div class="d-sec"><h3>চিকিৎসা — ধাপে ধাপে</h3>${(d.treat && d.treat.length)
+        ? `<ol class="steps">${d.treat.map((t) => `<li><span>${escapeHtml(t)}</span></li>`).join('')}</ol>` : '<p class="sub">—</p>'}</div>
 
       <div class="d-sec"><h3>প্রতিরোধ</h3>${li(d.prevent)}</div>
 
       <div class="d-two">
         <div class="d-sec"><h3>আপনার বাক্সে</h3>
-          ${mine.length ? `<div class="mine">${mine.map((i) => `<a href="hive.html?code=${i.hive}">${i.hive} · ${i.date}</a>`).join('')}</div>`
+          ${mine.length ? `<div class="mine">${mine.slice(0, 8).map((i) => `<a href="hive.html?code=${encodeURIComponent(i.hive)}">${escapeHtml(i.hive)} · ${MK.date(i.date)}</a>`).join('')}</div>`
             : '<p class="sub">আপনার কোনো বাক্সের পরিদর্শনে এই রোগ লেখা হয়নি।</p>'}
-          ${area ? `<p style="margin-top:8px" class="sub">এলাকায়: গত ৩০ দিনে ${area.where}-এ ${bn(area.farms)}টা খামারে পাওয়া গেছে।</p>` : ''}
+          ${area ? `<p style="margin-top:8px" class="sub">এলাকায়: গত ৩০ দিনে ${escapeHtml(area.where)}-এ ${bn(Number(area.farms) || 0)}টা খামারে পাওয়া গেছে।</p>` : ''}
         </div>
         <div class="d-sec"><h3>যার সাথে গুলিয়ে যায়</h3>
-          ${d.similar.length ? `<div class="sim">${d.similar.map((s) => `<button type="button" data-open="${s}">${byId(s).name}</button>`).join('')}</div>` : '<p class="sub">—</p>'}
+          ${similar.length ? `<div class="sim">${similar.map((s) => `<button type="button" data-open="${escapeHtml(s.id)}">${escapeHtml(s.name)}</button>`).join('')}</div>` : '<p class="sub">—</p>'}
         </div>
       </div>
 
       <div class="notice honey">এখানের তথ্য প্রাথমিক নির্দেশনা। ওষুধের নাম ও মাত্রার জন্য উপজেলা কৃষি কর্মকর্তা বা প্রাণিসম্পদ অফিসের পরামর্শ নিন।</div>
-      <div class="btns">
-        <a class="btn primary" href="inspections.html#new">পরিদর্শনে রোগটা লিখুন</a>
-        ${d.id === 'pesticide' ? '<a class="btn" href="alerts.html">স্প্রে সতর্কতা দেখুন</a>' : ''}
-      </div>`;
+      ${me && me.role === 'farmer' ? '<div class="btns"><a class="btn primary" href="inspections.html#new">পরিদর্শনে রোগটা লিখুন</a></div>' : ''}`;
   }
 
   function open(id, scroll) {
-    selected = id;
     const d = byId(id);
-    if (cat && d.cat !== cat) { cat = ''; renderCats(); }
+    if (!d) return;
+    selected = id;
+    if (cat && d.kind !== cat) { cat = ''; renderCats(); }
     input.value = '';
     sugg.classList.remove('open');
     renderList(); renderDetail();
@@ -287,21 +323,22 @@
   });
 
   // ---------- লক্ষণ বেছে খোঁজা ----------
-  // backend-এ: SELECT disease_id, COUNT(*) FROM disease_symptoms WHERE symptom_id IN (...) GROUP BY disease_id ORDER BY COUNT(*) DESC
+  // SQL-এ যা হতো: SELECT disease_id, COUNT(*) FROM disease_symptoms
+  //               WHERE symptom_id IN (...) GROUP BY disease_id ORDER BY COUNT(*) DESC
   function renderSymptoms() {
     document.getElementById('symptoms').innerHTML = Object.entries(SYMPTOMS).map(([id, name]) =>
-      `<button type="button" class="chip" aria-pressed="${picked.has(id)}" data-sym="${id}">${name}</button>`).join('');
+      `<button type="button" class="chip" aria-pressed="${picked.has(id)}" data-sym="${escapeHtml(id)}">${escapeHtml(name)}</button>`).join('');
   }
   function renderMatches() {
     const el = document.getElementById('matches');
     if (!picked.size) { el.innerHTML = '<div class="empty">কমপক্ষে একটা লক্ষণ বাছুন</div>'; return; }
-    const rows = DISEASES.map((d) => ({ d, hit: d.symptoms.filter((s) => picked.has(s)).length }))
+    const rows = DISEASES.map((d) => ({ d, hit: (d.symptoms || []).filter((s) => picked.has(s)).length }))
       .filter((r) => r.hit > 0)
       .sort((a, b) => b.hit - a.hit || b.hit / b.d.symptoms.length - a.hit / a.d.symptoms.length)
       .slice(0, 4);
     el.innerHTML = rows.length ? rows.map((r) => `
       <div class="match">
-        <div class="line"><a href="#" data-open="${r.d.id}"><b>${r.d.name}</b></a><span class="sub">${bn(r.hit)} / ${bn(picked.size)} লক্ষণ মিলেছে</span></div>
+        <div class="line"><a href="#" data-open="${escapeHtml(r.d.id)}"><b>${escapeHtml(r.d.name)}</b></a><span class="sub">${bn(r.hit)} / ${bn(picked.size)} লক্ষণ মিলেছে</span></div>
         <div class="meter"><i style="width:${Math.round(r.hit / picked.size * 100)}%"></i></div></div>`).join('')
       : '<div class="empty">কোনো রোগের সাথে মেলেনি</div>';
   }
@@ -313,14 +350,17 @@
   });
   document.getElementById('clear').addEventListener('click', () => { picked.clear(); renderSymptoms(); renderMatches(); });
 
-  document.getElementById('outbreaks').innerHTML = OUTBREAKS.map((o) => {
-    const d = DISEASES.find((x) => x.name === o.disease);
-    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line-2)">
-      <span style="flex:1"><a href="#" data-open="${d ? d.id : ''}"><b>${o.disease}</b></a>${o.alert ? ' <span class="pill red">সতর্কতা</span>' : ''}<br><span class="sub">${o.where}</span></span>
-      <b style="font-size:20px">${bn(o.farms)}</b><span class="sub">খামার</span></div>`;
-  }).join('');
-
-  renderCats(); renderList(); renderDetail(); renderSymptoms(); renderMatches();
+  // ---------- এলাকার রোগ (v_area_outbreaks ভিউ) ----------
+  function renderOutbreaks() {
+    const el = document.getElementById('outbreaks');
+    el.innerHTML = OUTBREAKS.length ? OUTBREAKS.map((o) => {
+      const d = DISEASES.find((x) => x.name === o.disease);
+      const near = me && me.upazila && String(o.where).split(', ').includes(me.upazila);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line-2)">
+        <span style="flex:1;min-width:0">${d ? `<a href="#" data-open="${escapeHtml(d.id)}"><b>${escapeHtml(o.disease)}</b></a>` : `<b>${escapeHtml(o.disease)}</b>`}${o.alert ? ' <span class="pill red">সতর্কতা</span>' : ''}${near ? ' <span class="pill honey">আপনার উপজেলা</span>' : ''}<br><span class="sub">${escapeHtml(o.where)}</span></span>
+        <b style="font-size:20px">${bn(Number(o.farms) || 0)}</b><span class="sub">খামার</span></div>`;
+    }).join('') : '<div class="empty">গত ৩০ দিনে কোনো খামারের পরিদর্শনে রোগ লেখা হয়নি</div>';
+  }
 </script>
 </body>
 </html>

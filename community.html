@@ -32,49 +32,49 @@
 
     <!-- Main Layout: Feed Stream on Left, Usable Widgets on Right -->
     <div class="community-layout">
-      
+
       <!-- Primary Column: Direct Post Box + Stream -->
       <div class="community-feed">
-        
-        <!-- VISIBLE DIRECT POST COMPOSER (User can post anytime directly) -->
+
+        <!-- নতুন পোস্ট -->
         <section class="card" style="padding:20px 22px;border:1px solid var(--line);box-shadow:0 3px 12px rgba(0,0,0,0.04)">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <span class="avatar" style="width:44px;height:44px;font-size:16px;background:var(--honey);color:var(--ink)">র</span>
+            <span class="avatar" id="meAvatar" style="width:44px;height:44px;font-size:16px;background:var(--honey);color:var(--ink)"></span>
             <div style="flex:1">
-              <b style="font-size:15px;color:var(--ink)">রহিম উদ্দিন</b>
-              <span class="sub" style="font-size:13px;display:block">চর ঘাটিনা খামার · উল্লাপাড়া, সিরাজগঞ্জ</span>
+              <b style="font-size:15px;color:var(--ink)" id="meName"></b>
+              <span class="sub" style="font-size:13px;display:block" id="meMeta"></span>
             </div>
-            <span class="pill green" style="font-size:12px">সক্রিয় আইডি</span>
+            <span class="pill green" style="font-size:12px" id="meRole"></span>
           </div>
 
           <form id="quickPostForm" style="display:flex;flex-direction:column;gap:12px">
-            <input type="text" id="postTitleInput" required placeholder="পোস্টের শিরোনাম (যেমন: উল্লাপাড়ায় সরিষার খবর / এক্সট্রাক্টর ভাড়া দিতে চাই / আর্দ্রতা নিয়ে প্রশ্ন)" style="min-height:44px;border:1px solid var(--line-strong);border-radius:10px;padding:0 14px;font-size:15px">
-            
-            <textarea id="postContentInput" required placeholder="আপনার খামারের অভিজ্ঞতা, মাঠের পরিস্থিতি, প্রশ্ন বা বিক্রয়/ভাড়ার বিস্তারিত বিবরণ লিখুন..." style="min-height:90px;border:1px solid var(--line-strong);border-radius:10px;padding:12px 14px;font-size:14.5px;resize:vertical;font-family:inherit"></textarea>
+            <input type="text" id="postTitleInput" required maxlength="200" placeholder="পোস্টের শিরোনাম (যেমন: উল্লাপাড়ায় সরিষার খবর / এক্সট্রাক্টর ভাড়া দিতে চাই / আর্দ্রতা নিয়ে প্রশ্ন)" style="min-height:44px;border:1px solid var(--line-strong);border-radius:10px;padding:0 14px;font-size:15px">
+
+            <textarea id="postContentInput" required placeholder="আপনার খামারের অভিজ্ঞতা, মাঠের পরিস্থিতি, প্রশ্ন বা বিক্রয়/ভাড়ার বিস্তারিত বিবরণ লিখুন..." style="min-height:90px;border:1px solid var(--line-strong);border-radius:10px;padding:12px 14px;font-size:14.5px;resize:vertical;font-family:inherit"></textarea>
 
             <div style="display:flex;gap:10px;flex-wrap:wrap">
               <label class="field" style="flex:1 1 180px">পোস্টের ক্যাটাগরি *
                 <select id="postCategorySelect">
                   <option value="flora">🌸 ফুলের খবর ও মাঠ বুলেটিন</option>
-                  <option value="resource">⚙️ যন্ত্রপাতি ও সরঞ্জাম লেনদেন</option>
-                  <option value="queen">👑 রানী ও প্রজনন কলোনি</option>
+                  <option value="resource">⚙️ যন্ত্রপাতি, রানী ও সম্পদ লেনদেন</option>
                   <option value="qa">❓ সমস্যা ও রোগ সমাধান (Q&A)</option>
-                  <option value="tips">💡 বাস্তব অভিজ্ঞতা ও পরাগায়ন</option>
+                  <option value="tips">💡 বাস্তব অভিজ্ঞতা ও পরাগায়ন</option>
                 </select>
               </label>
 
-              <label class="field" style="flex:1 1 180px">মূল্য বা শর্ত (যদি প্রযোজ্য হয়)
-                <input type="text" id="postPriceInput" placeholder="যেমন: ৳ ৫০০/দিন বা আলোচনা সাপেক্ষে">
+              <label class="field" style="flex:1 1 180px">মূল্য বা শর্ত (যদি প্রযোজ্য হয়)
+                <input type="text" id="postPriceInput" maxlength="80" placeholder="যেমন: ৳ ৫০০/দিন বা আলোচনা সাপেক্ষে">
               </label>
 
-              <label class="field" style="flex:1 1 160px">যোগাযোগের মোবাইল
-                <input type="tel" id="postPhoneInput" value="01712-345678">
+              <label class="field" style="flex:1 1 160px">ট্যাগ (কমা দিয়ে আলাদা)
+                <input type="text" id="postTagsInput" placeholder="যেমন: সরিষা, সিরাজগঞ্জ">
               </label>
             </div>
 
+            <div class="err" id="postErr" role="alert"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--line-2);flex-wrap:wrap;gap:10px">
               <span class="sub" style="font-size:13px">
-                ✨ পোস্ট করার সাথে সাথে এটি সবার ফিডে ও ম্যাপে দৃশ্যমান হবে।
+                ✨ পোস্ট করার সাথে সাথে এটি সব খামারির ফিডে দেখা যাবে। যোগাযোগের জন্য আপনার নিবন্ধিত মোবাইল নম্বর দেখানো হবে।
               </span>
               <button class="btn primary" type="submit" style="min-height:42px;padding:0 24px;font-size:15px;font-weight:700">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -90,7 +90,6 @@
             <button class="chip" data-cat="all" aria-pressed="true">সব পোস্ট (<span id="countAll">০</span>)</button>
             <button class="chip" data-cat="flora" aria-pressed="false">🌸 ফুলের খবর</button>
             <button class="chip" data-cat="resource" aria-pressed="false">⚙️ যন্ত্রপাতি ও সম্পদ</button>
-            <button class="chip" data-cat="queen" aria-pressed="false">👑 রানী ও কলোনি</button>
             <button class="chip" data-cat="qa" aria-pressed="false">❓ সমস্যা ও প্রশ্ন</button>
             <button class="chip" data-cat="tips" aria-pressed="false">💡 অভিজ্ঞতা</button>
           </div>
@@ -98,22 +97,22 @@
           <input type="search" id="streamSearchInput" placeholder="পোস্ট বা খামারি খুঁজুন..." style="min-height:36px;border:1px solid var(--line-strong);border-radius:20px;padding:0 14px;font-size:13px;width:180px">
         </div>
 
-        <!-- POSTS STREAM (Where user can see their own post AND others' posts) -->
+        <!-- পোস্টের তালিকা -->
         <div id="postsStream" style="display:flex;flex-direction:column;gap:16px"></div>
 
       </div>
 
       <!-- Right Column: Usable Beekeeper Side Widgets -->
       <aside class="community-sidebar">
-        
-        <!-- Today's Market Price Guide -->
+
+        <!-- বাজার দরের ধারণা (স্থির তথ্য, ডাটাবেজ থেকে নয়) -->
         <div class="card" style="padding:18px 20px;border-color:#F0D9A6;background:#FFFDF7">
           <div class="card-head">
             <h3 style="font-size:16px;margin:0;color:#8A5300;display:flex;align-items:center;gap:8px">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              মৌচাষ বাজার দর মনিটর
+              বাজার দরের ধারণা
             </h3>
-            <span class="pill honey" style="font-size:11px">সাপ্তাহিক</span>
+            <span class="pill honey" style="font-size:11px">আনুমানিক</span>
           </div>
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px;font-size:14px">
             <div style="display:flex;justify-content:space-between;border-bottom:1px solid #F5E8D0;padding-bottom:6px">
@@ -129,7 +128,7 @@
               <b style="color:var(--ink)">৳ ২,২০০ – ২,৫০০</b>
             </div>
             <div style="display:flex;justify-content:space-between;border-bottom:1px solid #F5E8D0;padding-bottom:6px">
-              <span>৪ ফ্রেম এক্সট্রাক্টর ভাড়া</span>
+              <span>৪ ফ্রেম এক্সট্রাক্টর ভাড়া</span>
               <b style="color:var(--ink)">৳ ৫০০ – ৭০০/দিন</b>
             </div>
           </div>
@@ -156,10 +155,10 @@
         <!-- Today's Field Tip -->
         <div class="card" style="padding:18px 20px;background:#F6FBF7;border-color:#CBE5D1">
           <h3 style="font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:6px;color:#245433">
-            <span>🐝</span> আজকের মৌচাষ টিপস
+            <span>🐝</span> মৌচাষ টিপস
           </h3>
           <p style="font-size:13px;line-height:1.55;color:#1E452B;margin:0">
-            শীতের শুরুতে মৌমাছির বাক্স সূর্য ওঠার দিকে মুখ করে রাখুন। রাতে ড্রপবোর্ডের ভেন্টিলেশন আধা ইঞ্চি খোলা রাখবেন যাতে জলীয়বাষ্প জমে ছত্রাক না পড়ে।
+            শীতের শুরুতে মৌমাছির বাক্স সূর্য ওঠার দিকে মুখ করে রাখুন। রাতে ড্রপবোর্ডের ভেন্টিলেশন আধা ইঞ্চি খোলা রাখবেন যাতে জলীয়বাষ্প জমে ছত্রাক না পড়ে।
           </p>
         </div>
 
@@ -169,178 +168,53 @@
   </main>
 </div>
 
-<script src="js/app.js"></script>
 <script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
 <script>
+  // পোস্ট, মন্তব্য আর upvote সব ডাটাবেজে (/api/community/posts/)।
+  // upvote গণনা post_votes টেবিলের trigger ঠিক রাখে; একজন একবারই দিতে পারে (UNIQUE)।
   const $ = (id) => document.getElementById(id);
-  // Ensure bn() exists safely without redeclaring global const
-  if (typeof window.bn !== 'function') {
-    window.bn = (num) => String(num).replace(/[0-9]/g, d => ['০','১','২','৩','৪','৫','৬','৭','৮','৯'][d]);
-  }
+  const CAT_LABEL = { flora: 'ফুলের খবর', resource: 'যন্ত্রপাতি ও সম্পদ', qa: 'সমস্যা ও সমাধান', tips: 'অভিজ্ঞতা ও পরামর্শ' };
+  const CAT_PILL = { flora: 'green', resource: 'honey', qa: 'blue', tips: 'gray' };
+  const initial = (name) => [...String(name || '').replace(/^(মো\.|মোছা\.|মোঃ)\s*/, '')][0] || 'খ';
 
-  // === Version-based localStorage seed flush ===
-  // Bump FEED_VERSION whenever demo posts change, to force-refresh all browsers
-  const FEED_VERSION = 'v5';
-  if (localStorage.getItem('moukhamar_feed_version') !== FEED_VERSION) {
-    localStorage.removeItem('moukhamar_full_posts_feed');
-    localStorage.setItem('moukhamar_feed_version', FEED_VERSION);
-  }
-
-  // Initial Posts with full interactive capability
-  const INITIAL_COMMUNITY_FEED = [
-    {
-      id: 1,
-      author: 'হাবিবুর রহমান',
-      farm: 'পদ্মা মৌখামার',
-      district: 'পাবনা',
-      upazila: 'সুজানগর',
-      farmerId: 6,
-      category: 'flora',
-      categoryLabel: 'ফুলের খবর',
-      title: 'সুজানগর ও ঈশ্বরদী পদ্মার চরে সরিষা ফুলের কুঁড়ি আসা শুরু হয়েছে',
-      body: 'যাঁরা এই মৌসুমে পদ্মা পাড়ে বাক্স বসাতে চান, তাঁদের জন্য সুখবর—চরে আগাম তোষা ও বারি-১৪ সরিষা বোনা হয়েছিল। আর ১০-১২ দিনের মধ্যে হলুদ ফুল ফুটে যাবে। খামার বসানোর ভালো উঁচু ও শুকনো জায়গা এখনো খালি আছে। যাতায়াত বা ট্রলারের জন্য সহায়তা লাগলে যোগাযোগ করতে পারেন।',
-      price: null,
-      phone: '01815678901',
-      whatsapp: '8801815678901',
-      tags: ['সরিষা ২০২৬', 'পদ্মার চর', 'স্থান নির্বাচন'],
-      time: '২ ঘণ্টা আগে',
-      upvotes: 24,
-      upvoted: false,
-      comments: [
-        { author: 'আব্দুল করিম', text: 'খুবই উপকারী খবর হাবিব ভাই! চরের দিকে যাতায়াতের ট্রলারের সুবিধা কেমন?', time: '১ ঘণ্টা আগে' },
-        { author: 'হাবিবুর রহমান', text: 'ঘাটে প্রতিদিন ট্রলার থাকে করিম ভাই, একসাথে ১০০ বাক্সও নিরাপদে পার করা সম্ভব।', time: '৪০ মিনিট আগে' }
-      ]
-    },
-    {
-      id: 2,
-      author: 'মোস্তফা কামাল',
-      farm: 'বেলকুচি মধুঘর',
-      district: 'সিরাজগঞ্জ',
-      upazila: 'বেলকুচি',
-      farmerId: 4,
-      category: 'resource',
-      categoryLabel: 'যন্ত্রপাতি ও সম্পদ',
-      title: '৪ ফ্রেমের ফুড-গ্রেড স্টেইনলেস স্টিল মধু নিষ্কাশন মেশিন (Extractor) স্বল্প ভাড়ায় বা বিক্রয়',
-      body: 'আমাদের খামারে নতুন মোটরচালিত বড় মেশিন সংযোজন হওয়ায় আগের ফুড-গ্রেড ৪ ফ্রেমের হ্যান্ড এক্সট্রাক্টরটি অতিরিক্ত রয়েছে। এটি একদম নিখুঁত এবং ফ্রেমের কোনো মোম নষ্ট করে না। উল্লাপাড়া বা বেলকুচি এলাকার খামারি ভাইয়েরা প্রয়োজন হলে নিতে পারেন।',
-      price: '৳ ৫০০ / দিন ভাড়া',
-      phone: '01913456789',
-      whatsapp: '8801913456789',
-      tags: ['মধু নিষ্কাশন', 'যন্ত্রপাতি', 'বেলকুচি'],
-      time: '৪ ঘণ্টা আগে',
-      upvotes: 38,
-      upvoted: false,
-      comments: [
-        { author: 'সেলিনা বেগম', text: 'মেশিনটা কি ৩ দিনের জন্য ভাড়া নেওয়া সম্ভব? আমাদের প্রথম লটের মধু ভাঙতে হবে।', time: '৩ ঘণ্টা আগে' },
-        { author: 'মোস্তফা কামাল', text: 'হ্যাঁ আপা, সরাসরি মোবাইলে ফোন দিন বা হোয়াটসঅ্যাপ করুন, আজই পাঠিয়ে দিতে পারব।', time: '২ ঘণ্টা আগে' }
-      ]
-    },
-    {
-      id: 3,
-      author: 'আব্দুল করিম',
-      farm: 'মধুকুঞ্জ মৌখামার',
-      district: 'সিরাজগঞ্জ',
-      upazila: 'উল্লাপাড়া',
-      farmerId: 1,
-      category: 'queen',
-      categoryLabel: 'রানী সরবরাহ',
-      title: 'উচ্চ উৎপাদনশীল জাতের মেলিফেরা (Apis mellifera) সুস্থ যুবতী রানী সরবরাহ',
-      body: 'আমাদের খামারের ব্রিডিং সেল থেকে ১৫টি পরীক্ষিত ও নিয়মিত ডিম পাড়া নতুন রানী সরবরাহযোগ্য। যাঁদের বাক্সে রানীহীন অবস্থা (Queenless) রয়েছে, তাঁরা রানী প্রতিস্থাপন করে কলোনি দ্রুত শক্তিশালী করতে পারেন। কুইন কেজে কুরিয়ারে পাঠানো যাবে।',
-      price: '৳ ৬৫০ / প্রতিটি রানী',
-      phone: '01711234567',
-      whatsapp: '8801711234567',
-      tags: ['রানী মৌমাছি', 'মেলিফেরা', 'কলোনি বৃদ্ধি'],
-      time: '১ দিন আগে',
-      upvotes: 49,
-      upvoted: false,
-      comments: [
-        { author: 'ফারুক আহমেদ', text: 'করিম ভাই, দিনাজপুরে কি খাঁচায় করে নিরাপদে পাঠানো যাবে?', time: '১৮ ঘণ্টা আগে' },
-        { author: 'আব্দুল করিম', text: 'হ্যাঁ, ক্যান্ডি দিয়ে স্পেশাল ট্রাভেলিং কেজে ২৪ ঘণ্টার মধ্যে নিরাপদে পৌঁছাবে।', time: '১৫ ঘণ্টা আগে' }
-      ]
-    },
-    {
-      id: 4,
-      author: 'সেলিনা বেগম',
-      farm: 'সোনালী মৌচাক',
-      district: 'সিরাজগঞ্জ',
-      upazila: 'উল্লাপাড়া',
-      farmerId: 2,
-      category: 'qa',
-      categoryLabel: 'সমস্যা ও সমাধান',
-      title: 'শীতের রাতে বাক্সে অতিরিক্ত আর্দ্রতা ও জলীয়বাষ্প রোধে আপনারা কী করছেন?',
-      body: 'গত কয়েকদিন ধরে রাতে কুয়াশা বেড়ে যাওয়ায় সকালের দিকে বাক্সের ভেতরের অংশে হালকা জলকণা জমছে। আপনারা আর্দ্রতা ২৫%-এর নিচে রাখতে পাটের চটের পাশাপাশি আর কী টেকনিক ব্যবহার করছেন? ভেন্টিলেশন কি পুরোপুরি বন্ধ রাখবেন নাকি হালকা খোলা?',
-      price: null,
-      phone: '01812345678',
-      whatsapp: '8801812345678',
-      tags: ['আর্দ্রতা নিয়ন্ত্রণ', 'শীতকালীন যত্ন', 'ব্রুড সুরক্ষা'],
-      time: '১ দিন আগে',
-      upvotes: 31,
-      upvoted: false,
-      comments: [
-        { author: 'রহিম উদ্দিন', text: 'উপরের ভেন্টিলেশন স্লিট আধা ইঞ্চি খোলা রাখুন। বাতাস চলাচলের পথ না থাকলে আর্দ্রতা জমে রোগ হতে পারে।', time: '২০ ঘণ্টা আগে' },
-        { author: 'জাহিদ হাসান', text: 'আমরা ঢাকনার নিচে শুকনো খবরের কাগজের দুটি স্তর দিই, এটি অতিরিক্ত জলীয়বাষ্প শুষে নেয়।', time: '১৬ ঘণ্টা আগে' }
-      ]
-    },
-    {
-      id: 5,
-      author: 'জাহিদ হাসান',
-      farm: 'লিচুতলা খামার',
-      district: 'দিনাজপুর',
-      upazila: 'বিরল',
-      farmerId: 7,
-      category: 'tips',
-      categoryLabel: 'অভিজ্ঞতা ও পরামর্শ',
-      title: 'কীটনাশক স্প্রে থেকে মৌমাছি বাঁচাতে স্থানীয় কৃষকদের সাথে সমঝোতার বাস্তব মডেল',
-      body: 'আমরা বিরল উপজেলার সরিষা ও ভুট্টা চাষীদের সাথে বৈঠক করেছিলাম। তাঁদেরকে বোঝানো হয়েছে যে মৌমাছির পরাগায়নে ফলন ২০-২৫% বৃদ্ধি পায়। ফলে তাঁরা সকাল ১০টায় স্প্রে না করে বিকেল ৫টার পর স্প্রে করতে রাজি হয়েছেন। এতে গত মৌসুমে আমাদের একটি মৌমাছিও মরেনি।',
-      price: null,
-      phone: '01616789012',
-      whatsapp: '8801616789012',
-      tags: ['কীটনাশক রক্ষা', 'কৃষক সমঝোতা', 'পরাগায়ন'],
-      time: '২ দিন আগে',
-      upvotes: 62,
-      upvoted: false,
-      comments: [
-        { author: 'নাসরিন আক্তার', text: 'অসাধারণ উদ্যোগ জাহিদ ভাই! আমরাও পাবনাতে এই পদ্ধতি ফলো করতে চেষ্টা করব।', time: '১ দিন আগে' }
-      ]
-    }
-  ];
-
-  function getStoredPosts() {
-    try {
-      const raw = localStorage.getItem('moukhamar_full_posts_feed');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        // Must have at least as many posts as the initial feed to be valid
-        if (Array.isArray(parsed) && parsed.length >= INITIAL_COMMUNITY_FEED.length) return parsed;
-      }
-    } catch(e) {}
-    // Seed localStorage with demo posts for first time (or after version flush)
-    savePostsList(INITIAL_COMMUNITY_FEED);
-    return INITIAL_COMMUNITY_FEED;
-  }
-
-  function savePostsList(list) {
-    try {
-      localStorage.setItem('moukhamar_full_posts_feed', JSON.stringify(list));
-    } catch(e) {}
-  }
-
+  let POSTS = [];
+  let me = null;
   let activeCategory = 'all';
   let searchTerm = '';
+  const openComments = new Set();   // কোন পোস্টের মন্তব্য খোলা রাখা আছে
+
+  MK.start([], async (user) => {
+    me = user;
+    $('meAvatar').textContent = initial(me.name);
+    $('meName').textContent = me.name;
+    $('meMeta').textContent = [me.farm, [me.upazila, me.district].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+    $('meRole').textContent = MK.isAdmin(me) ? 'অ্যাডমিন' : me.role === 'cropper' ? 'কৃষক' : 'খামারি';
+    await loadPosts();
+    const target = location.hash.match(/^#post-(\d+)$/);
+    if (target && $(`post-${target[1]}`)) $(`post-${target[1]}`).scrollIntoView({ block: 'start' });
+  });
+
+  async function loadPosts() {
+    POSTS = await API.get('community/posts/');
+    POSTS.forEach((p) => { if (p.comments && p.comments.length) openComments.add(p.id); });
+    renderStats();
+    renderPostsStream();
+  }
 
   function renderStats() {
-    const list = getStoredPosts();
-    $('countAll').textContent = bn(list.length);
-
-    const floraC = list.filter(p => p.category === 'flora').length;
-    const resC = list.filter(p => p.category === 'resource' || p.category === 'queen').length;
-    const totalComms = list.reduce((s, p) => s + (p.comments ? p.comments.length : 0), 0);
+    $('countAll').textContent = bn(POSTS.length);
+    const floraC = POSTS.filter((p) => p.category === 'flora').length;
+    const resC = POSTS.filter((p) => p.category === 'resource').length;
+    const totalComms = POSTS.reduce((s, p) => s + (p.comments ? p.comments.length : 0), 0);
 
     $('feedStats').innerHTML = [
-      ['কমিউনিটি পোস্ট সংখ্যা', bn(list.length), 'টি আলোচনা'],
-      ['ফুলের মাঠ বুলেটিন', bn(floraC), 'টি এলাকা'],
-      ['যন্ত্রপাতি ও রানী লিস্টিং', bn(resC), 'টি অফার'],
+      ['কমিউনিটি পোস্ট সংখ্যা', bn(POSTS.length), 'টি আলোচনা'],
+      ['ফুলের মাঠ বুলেটিন', bn(floraC), 'টি পোস্ট'],
+      ['যন্ত্রপাতি ও সম্পদ', bn(resC), 'টি অফার'],
       ['মোট পরামর্শ ও উত্তর', bn(totalComms), 'টি মন্তব্য']
-    ].map(s => `
+    ].map((s) => `
       <div class="stat">
         <div class="k">${s[0]}</div>
         <div class="v">${s[1]} <span style="font-size:14px;font-weight:400;color:var(--muted)">${s[2]}</span></div>
@@ -348,60 +222,60 @@
     `).join('');
   }
 
+  function matches(post) {
+    const q = searchTerm.toLowerCase();
+    const hay = [post.title, post.body, post.author_name, post.author_district, post.author_upazila, (post.tags || []).join(' ')]
+      .join(' ').toLowerCase();
+    return (!q || hay.includes(q)) && (activeCategory === 'all' || post.category === activeCategory);
+  }
+
   function renderPostsStream() {
-    const list = getStoredPosts();
-    const filtered = list.filter(post => {
-      const q = searchTerm.toLowerCase();
-      const matchQ = !q || post.title.toLowerCase().includes(q) || post.body.toLowerCase().includes(q) || post.author.toLowerCase().includes(q) || post.district.toLowerCase().includes(q);
-      const matchCat = activeCategory === 'all' || post.category === activeCategory;
-      return matchQ && matchCat;
-    });
+    const filtered = POSTS.filter(matches);
 
     if (!filtered.length) {
       $('postsStream').innerHTML = `
         <div class="card" style="padding:40px;text-align:center;color:var(--muted)">
           <span style="font-size:32px;display:block;margin-bottom:8px">💬</span>
-          কোনো পোস্ট পাওয়া যায়নি। আপনিই ওপরে নতুন একটি পোস্ট লিখে শুরু করুন!
+          ${POSTS.length ? 'এই খোঁজে কোনো পোস্ট পাওয়া যায়নি।' : 'এখনো কোনো পোস্ট নেই। আপনিই ওপরে নতুন একটি পোস্ট লিখে শুরু করুন!'}
         </div>`;
       return;
     }
 
-    $('postsStream').innerHTML = filtered.map(post => {
-      const isUpvoted = post.upvoted ? 'active' : '';
+    $('postsStream').innerHTML = filtered.map((post) => {
       const comments = post.comments || [];
-      const cleanPhone = (post.phone || '').replace(/[^0-9]/g, '');
-      const waNumber = post.whatsapp ? post.whatsapp.replace(/[^0-9]/g, '') : `88${cleanPhone}`;
+      const phone = String(post.author_phone || '').replace(/[^0-9]/g, '');
       const waMsg = encodeURIComponent(`সালাম, মৌখামার কমিউনিটিতে আপনার "${post.title}" পোস্টটি দেখেছি।`);
+      const place = [post.author_upazila, post.author_district].filter(Boolean).join(', ');
+      const meta = [post.author_farm, place, MK.ago(post.created_at)].filter(Boolean).map(escapeHtml).join(' · ');
 
-      // Resource Highlight Box
+      // মূল্য থাকলে যোগাযোগের বাক্স (লেখকের নিবন্ধিত নম্বর)
       const resourceBoxHtml = post.price ? `
         <div style="background:#FFFDF7;border:1px dashed #E2CE9F;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
           <div>
-            <span style="font-size:12px;color:var(--muted);display:block">মূল্য / শর্ত</span>
-            <b style="font-size:16px;color:#8A5300">${post.price}</b>
+            <span style="font-size:12px;color:var(--muted);display:block">মূল্য / শর্ত${post.resource_type ? ' · ' + escapeHtml(post.resource_type) : ''}</span>
+            <b style="font-size:16px;color:#8A5300">${escapeHtml(post.price)}</b>
           </div>
-          <div style="display:flex;gap:8px">
-            <a class="btn primary" href="tel:${post.phone}" style="min-height:34px;font-size:13px;padding:0 12px">
+          ${phone ? `<div style="display:flex;gap:8px">
+            <a class="btn primary" href="tel:${phone}" style="min-height:34px;font-size:13px;padding:0 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-              কল করুন (${post.phone})
+              কল করুন (${toBnDigits(phone)})
             </a>
-            <a class="btn btn-whatsapp" href="https://wa.me/${waNumber}?text=${waMsg}" target="_blank" rel="noopener" style="min-height:34px;font-size:13px;padding:0 12px">
+            <a class="btn btn-whatsapp" href="https://wa.me/88${phone}?text=${waMsg}" target="_blank" rel="noopener" style="min-height:34px;font-size:13px;padding:0 12px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2z"/></svg>
               WhatsApp
             </a>
-          </div>
+          </div>` : ''}
         </div>` : '';
 
-      // Comments List
-      const commentsHtml = comments.map(c => `
+      const commentsHtml = comments.map((c) => `
         <div class="comment-item">
-          <div class="comment-avatar">${(c.author || 'খ').charAt(0)}</div>
+          <div class="comment-avatar">${escapeHtml(initial(c.author_name))}</div>
           <div class="comment-content">
             <div style="display:flex;align-items:baseline;gap:6px">
-              <b>${c.author || 'খামারি'}</b>
-              <span class="time">${c.time || 'এইমাত্র'}</span>
+              <b>${escapeHtml(c.author_name || 'খামারি')}</b>
+              <span class="time">${escapeHtml(MK.ago(c.created_at))}</span>
             </div>
-            <p>${c.text}</p>
+            <p>${escapeHtml(c.text)}</p>
           </div>
         </div>
       `).join('');
@@ -410,62 +284,57 @@
         <article class="post-card" id="post-${post.id}">
           <div class="post-header">
             <div class="post-author">
-              <span class="avatar">${post.author.charAt(0)}</span>
+              <span class="avatar">${escapeHtml(initial(post.author_name))}</span>
               <div class="post-author-info">
                 <div style="display:flex;align-items:center;gap:6px">
-                  <b>${post.author}</b>
-                  <span class="pill green" style="font-size:11px;padding:1px 6px">✓ যাচাইকৃত</span>
+                  <b>${escapeHtml(post.author_name)}</b>
                 </div>
-                <span>${post.farm} · ${post.upazila}, ${post.district} · ${post.time}</span>
+                <span>${meta}</span>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <span class="pill ${post.category === 'flora' ? 'green' : post.category === 'resource' ? 'honey' : post.category === 'queen' ? 'honey' : 'blue'}">
-                ${post.categoryLabel || 'সাধারণ'}
-              </span>
-              ${post.farmerId ? `
-                <a class="btn" href="map.html?farmer=${post.farmerId}" style="min-height:30px;font-size:12px;padding:0 8px">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>
-                  ম্যাপে দেখুন
+              <span class="pill ${CAT_PILL[post.category] || 'gray'}">${CAT_LABEL[post.category] || 'সাধারণ'}</span>
+              ${post.author_farm ? `
+                <a class="btn" href="profile.html?farmer=${post.author}" style="min-height:30px;font-size:12px;padding:0 8px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  খামারির প্রোফাইল
                 </a>` : ''}
             </div>
           </div>
 
-          <h3 class="post-title" style="font-size:17.5px;margin:2px 0 0">${post.title}</h3>
-          <div class="post-body" style="font-size:15px;line-height:1.6">${post.body}</div>
+          <h3 class="post-title" style="font-size:17.5px;margin:2px 0 0">${escapeHtml(post.title)}</h3>
+          <div class="post-body" style="font-size:15px;line-height:1.6;white-space:pre-line">${escapeHtml(post.body)}</div>
 
           ${resourceBoxHtml}
 
           ${(post.tags && post.tags.length) ? `
             <div class="chips" style="gap:6px">
-              ${post.tags.map(t => `<span class="pill gray" style="font-size:12px">#${t}</span>`).join('')}
+              ${post.tags.map((t) => `<span class="pill gray" style="font-size:12px">#${escapeHtml(t)}</span>`).join('')}
             </div>` : ''}
 
           <div class="post-footer">
             <div class="post-interact">
-              <button class="interact-btn ${isUpvoted}" onclick="handleUpvote(${post.id})" type="button">
+              <button class="interact-btn ${post.upvoted ? 'active' : ''}" data-act="upvote" data-id="${post.id}" type="button" aria-pressed="${post.upvoted}">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
                 <span>উপকারী (${bn(post.upvotes || 0)})</span>
               </button>
 
-              <button class="interact-btn" onclick="toggleComments(${post.id})" type="button">
+              <button class="interact-btn" data-act="comments" data-id="${post.id}" type="button">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 <span>মন্তব্য ও উত্তর (${bn(comments.length)})</span>
               </button>
             </div>
 
-            <button class="interact-btn" onclick="sharePost(${post.id})" type="button" title="লিংক কপি করুন">
+            <button class="interact-btn" data-act="share" data-id="${post.id}" type="button" title="লিংক কপি করুন">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-              <span>শেয়ার</span>
+              <span>শেয়ার</span>
             </button>
           </div>
 
-          <!-- Direct Comments Accordion -->
-          <div class="comment-list" id="comments-box-${post.id}" style="display:${comments.length ? 'flex' : 'none'}">
-            <div id="comments-items-${post.id}">${commentsHtml}</div>
-            
-            <form class="comment-input-row" onsubmit="handleCommentSubmit(event, ${post.id})">
-              <input type="text" placeholder="আপনার পরামর্শ, সমাধান বা উত্তর লিখুন..." required>
+          <div class="comment-list" id="comments-box-${post.id}" style="display:${openComments.has(post.id) ? 'flex' : 'none'}">
+            <div>${commentsHtml}</div>
+            <form class="comment-input-row" data-id="${post.id}">
+              <input type="text" maxlength="1000" placeholder="আপনার পরামর্শ, সমাধান বা উত্তর লিখুন..." required>
               <button class="btn primary" type="submit">উত্তর দিন</button>
             </form>
           </div>
@@ -478,8 +347,7 @@
   $('streamFilterChips').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-cat]');
     if (!btn) return;
-
-    $('streamFilterChips').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    $('streamFilterChips').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
     btn.setAttribute('aria-pressed', 'true');
     activeCategory = btn.dataset.cat;
     renderPostsStream();
@@ -491,108 +359,111 @@
     renderPostsStream();
   });
 
-  // Upvote
-  window.handleUpvote = function(postId) {
-    const list = getStoredPosts();
-    const item = list.find(p => p.id === postId);
-    if (item) {
-      item.upvoted = !item.upvoted;
-      item.upvotes = (item.upvotes || 0) + (item.upvoted ? 1 : -1);
-      savePostsList(list);
+  // ---- upvote / মন্তব্য খোলা / শেয়ার ----
+  $('postsStream').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    const post = POSTS.find((p) => p.id === id);
+    if (!post) return;
+
+    if (btn.dataset.act === 'upvote') {
+      btn.disabled = true;
+      try {
+        // আগে দেওয়া থাকলে তুলে নেওয়া (DELETE), না থাকলে দেওয়া (POST)
+        const resp = post.upvoted
+          ? await API.del(`community/posts/${id}/upvote/`)
+          : await API.post(`community/posts/${id}/upvote/`);
+        post.upvotes = resp.upvotes;
+        post.upvoted = resp.upvoted;
+      } catch (ex) {
+        if (ex.status === 409 && ex.data) {   // আগেই দেওয়া ছিল
+          post.upvoted = true;
+          if (ex.data.upvotes !== undefined) post.upvotes = ex.data.upvotes;
+        } else {
+          toast(ex.message);
+        }
+      }
       renderPostsStream();
+    } else if (btn.dataset.act === 'comments') {
+      openComments.has(id) ? openComments.delete(id) : openComments.add(id);
+      const box = $(`comments-box-${id}`);
+      if (box) {
+        box.style.display = openComments.has(id) ? 'flex' : 'none';
+        if (openComments.has(id)) box.querySelector('input').focus();
+      }
+    } else if (btn.dataset.act === 'share') {
+      const link = `${location.origin}/community.html#post-${id}`;
+      try {
+        await navigator.clipboard.writeText(link);
+        toast('পোস্টের লিংক কপি করা হয়েছে');
+      } catch (ex) {
+        toast('লিংক: ' + link);
+      }
     }
-  };
+  });
 
-  // Toggle comments
-  window.toggleComments = function(postId) {
-    const box = $(`comments-box-${postId}`);
-    if (box) {
-      box.style.display = box.style.display === 'none' ? 'flex' : 'none';
-    }
-  };
-
-  // Submit comment
-  window.handleCommentSubmit = function(e, postId) {
+  // ---- মন্তব্য পাঠানো ----
+  $('postsStream').addEventListener('submit', async (e) => {
+    const form = e.target.closest('form.comment-input-row');
+    if (!form) return;
     e.preventDefault();
-    const input = e.target.querySelector('input');
+    const id = Number(form.dataset.id);
+    const input = form.querySelector('input');
     const text = input.value.trim();
     if (!text) return;
-
-    const list = getStoredPosts();
-    const item = list.find(p => p.id === postId);
-    if (item) {
-      if (!item.comments) item.comments = [];
-      item.comments.push({ author: 'রহিম উদ্দিন', text: text, time: 'এইমাত্র' });
-      savePostsList(list);
-      input.value = '';
+    const btn = form.querySelector('button');
+    btn.disabled = true;
+    try {
+      const saved = await API.post(`community/posts/${id}/comments/`, { text });
+      const post = POSTS.find((p) => p.id === id);
+      if (post) post.comments = (post.comments || []).concat(saved);
+      openComments.add(id);
       renderPostsStream();
       renderStats();
-      showToast('আপনার উত্তর সফলভাবে যুক্ত হয়েছে!');
+      toast('আপনার উত্তর যুক্ত হয়েছে');
+    } catch (ex) {
+      toast(ex.message || 'মন্তব্য পাঠানো যায়নি');
+      btn.disabled = false;
     }
-  };
+  });
 
-  window.sharePost = function(postId) {
-    showToast('পোস্টের লিংক কপি করা হয়েছে!');
-  };
-
-  // DIRECT QUICK POST CREATION
-  $('quickPostForm').addEventListener('submit', (e) => {
+  // ---- নতুন পোস্ট ----
+  $('quickPostForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const err = $('postErr');
     const title = $('postTitleInput').value.trim();
     const body = $('postContentInput').value.trim();
     const category = $('postCategorySelect').value;
-    const price = $('postPriceInput').value.trim() || null;
-    const phone = $('postPhoneInput').value.trim() || '01712-345678';
+    const price = $('postPriceInput').value.trim();
+    const tagNames = $('postTagsInput').value.split(/[,،]/).map((t) => t.trim().replace(/^#/, '')).filter(Boolean);
 
-    const catLabels = {
-      flora: 'ফুলের খবর',
-      resource: 'যন্ত্রপাতি ও সম্পদ',
-      queen: 'রানী সরবরাহ',
-      qa: 'সমস্যা ও সমাধান',
-      tips: 'অভিজ্ঞতা ও পরামর্শ'
-    };
+    if (title.length < 5) { err.textContent = 'শিরোনাম অন্তত ৫ অক্ষরের লিখুন'; return; }
+    if (body.length < 10) { err.textContent = 'বিবরণ একটু বিস্তারিত লিখুন'; return; }
 
-    const newPost = {
-      id: Date.now(),
-      author: 'রহিম উদ্দিন',
-      farm: 'চর ঘাটিনা খামার',
-      district: 'সিরাজগঞ্জ',
-      upazila: 'উল্লাপাড়া',
-      farmerId: 3,
-      category: category,
-      categoryLabel: catLabels[category] || 'সাধারণ',
-      title: title,
-      body: body,
-      price: price,
-      phone: phone,
-      whatsapp: `88${phone.replace(/[^0-9]/g, '')}`,
-      tags: [catLabels[category], 'সিরাজগঞ্জ'],
-      time: 'এইমাত্র',
-      upvotes: 1,
-      upvoted: true,
-      comments: []
-    };
-
-    const list = getStoredPosts();
-    list.unshift(newPost);
-    savePostsList(list);
-
-    // Reset inputs
-    $('postTitleInput').value = '';
-    $('postContentInput').value = '';
-    $('postPriceInput').value = '';
-
-    showToast('আপনার পোস্ট সফলভাবে কমিউনিটিতে প্রকাশিত হয়েছে!');
-    activeCategory = 'all';
-    $('streamFilterChips').querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false'));
-    
-    renderStats();
-    renderPostsStream();
-    window.scrollTo({ top: 180, behavior: 'smooth' });
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    err.textContent = '';
+    try {
+      await API.post('community/posts/', {
+        category, title, body, price,
+        resource_type: category === 'resource' ? 'যন্ত্রপাতি' : '',
+        tag_names: tagNames
+      });
+      e.target.reset();
+      activeCategory = 'all';
+      searchTerm = '';
+      $('streamSearchInput').value = '';
+      $('streamFilterChips').querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false'));
+      await loadPosts();
+      toast('আপনার পোস্ট কমিউনিটিতে প্রকাশিত হয়েছে');
+      $('postsStream').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (ex) {
+      err.textContent = ex.message || 'পোস্ট প্রকাশ করা যায়নি';
+    } finally {
+      btn.disabled = false;
+    }
   });
-
-  renderStats();
-  renderPostsStream();
 </script>
 </body>
 </html>

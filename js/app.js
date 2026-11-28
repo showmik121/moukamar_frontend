@@ -29,9 +29,16 @@ const NAV = [
   { id: 'diseases', label: 'রোগ ও লক্ষণ', href: 'diseases.html' },
   { id: 'calendar', label: 'ফুলের ক্যালেন্ডার', href: 'calendar.html' },
   { id: 'directory', label: 'খামারি তালিকা', href: 'directory.html' },
-  { id: 'alerts', label: 'সতর্কতা', href: 'alerts.html', count: 3 },
+  { id: 'alerts', label: 'সতর্কতা', href: 'alerts.html', count: 'unread' },
   { id: 'admin', label: 'অ্যাডমিন ড্যাশবোর্ড', href: 'admin.html' }
 ];
+
+// ব্যবহারকারীর লেখা (নাম, পোস্ট, মন্তব্য) innerHTML-এ বসানোর আগে — নাহলে
+// কেউ নামে <script> বা <img onerror> লিখে অন্যের পর্দায় কোড চালাতে পারে (XSS)
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 function icon(name, size = 20) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -42,9 +49,7 @@ const LOGO = '<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"
 async function handleLogout(e) {
   if (e) e.preventDefault();
   try {
-    if (typeof API !== 'undefined' && API.useBackend) {
-      await API.post('auth/logout/').catch(() => {});
-    }
+    if (typeof API !== 'undefined') await API.post('auth/logout/').catch(() => {});
   } catch (err) {}
   if (typeof Session !== 'undefined') {
     Session.clear();
@@ -66,18 +71,22 @@ function renderSidebar() {
     return true;
   });
 
-  const links = filteredNav.map((n) => `
+  const unread = (typeof MK !== 'undefined' && MK.unread) || 0;
+  const links = filteredNav.map((n) => {
+    const count = n.count === 'unread' ? unread : n.count;
+    return `
     <a href="${n.href}" class="${n.id === active ? 'active' : ''}" ${n.id === active ? 'aria-current="page"' : ''}>
-      ${icon(n.id)}<span>${n.label}</span>${n.count ? `<span class="count">${bn(n.count)}</span>` : ''}
-    </a>`).join('');
-  
-  const userName = currentUser ? currentUser.name : 'রহিম উদ্দিন';
+      ${icon(n.id)}<span>${n.label}</span>${count ? `<span class="count">${bn(count)}</span>` : ''}
+    </a>`;
+  }).join('');
+
+  const userName = currentUser ? escapeHtml(currentUser.name) : '';
   let userRole = 'খামারি';
   if (currentUser) {
-    if (isAdmin) userRole = 'সুপার অ্যাডমিন';
+    if (isAdmin) userRole = 'অ্যাডমিন';
     else if (currentUser.role === 'cropper') userRole = 'কৃষক';
   }
-  const userLoc = currentUser && currentUser.district ? ` · ${currentUser.district}` : (currentUser && currentUser.email ? ` · ${currentUser.email}` : ' · সিরাজগঞ্জ');
+  const userLoc = escapeHtml(currentUser && currentUser.district ? ` · ${currentUser.district}` : (currentUser && currentUser.email ? ` · ${currentUser.email}` : ''));
 
   side.innerHTML = `
     <a class="brand" href="${isAdmin ? 'admin.html' : 'dashboard.html'}">${LOGO}<span>মৌখামার</span></a>

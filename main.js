@@ -1,6 +1,6 @@
 // মৌখামার — Electron Desktop App (main.js)
-// Django backend চালু থাকলে MK_BACKEND_URL=http://127.0.0.1:8000 npm start
-// শুধু HTML ফাইল দিয়ে চালাতে: npm start
+// অ্যাপের পাতাগুলো Django backend থেকে খোলে (একই origin), তাই আগে backend চালু করুন।
+// অন্য ঠিকানায় backend থাকলে: $env:MK_BACKEND_URL="http://..."; npm start
 
 const { app, BrowserWindow, Menu, shell, session, ipcMain } = require('electron');
 const path = require('path');
@@ -22,7 +22,9 @@ if (fs.existsSync(envPath)) {
   });
 }
 
-const BACKEND_URL = process.env.MK_BACKEND_URL || '';   // খালি = local HTML ফাইল
+// file:// থেকে খুললে ব্রাউজার session cookie রাখে না আর CSRF Origin 'null' হয় —
+// তাই পাতাগুলো সবসময় backend-এর ঠিকানা থেকে খোলা হয়
+const BACKEND_URL = (process.env.MK_BACKEND_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 const isMac = process.platform === 'darwin';
 
 let mainWindow = null;
@@ -40,8 +42,20 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 function isAppUrl(url) {
-  if (url.startsWith('file://')) return true;
-  return BACKEND_URL && url.startsWith(BACKEND_URL);
+  return url.startsWith(BACKEND_URL + '/') || url.startsWith('data:');
+}
+
+// backend চালু না থাকলে খালি সাদা পর্দার বদলে এই বার্তা
+function offlinePage() {
+  const html = `<!doctype html><html lang="bn"><meta charset="utf-8"><title>মৌখামার</title>
+  <body style="font-family:'Nirmala UI',sans-serif;background:#F5F3EC;color:#1F1B16;display:grid;place-items:center;height:100vh;margin:0">
+  <div style="max-width:460px;text-align:center">
+    <h2>সার্ভারের সাথে সংযোগ হচ্ছে না</h2>
+    <p>মৌখামারের backend (${BACKEND_URL}) চালু নেই। <b>moukamar_backend</b> ফোল্ডারে
+    <code>run-backend.bat</code> চালিয়ে আবার চেষ্টা করুন।</p>
+    <p><a href="${BACKEND_URL}/index.html" style="display:inline-block;padding:10px 18px;border-radius:10px;background:#F2B632;color:#1F1B16;text-decoration:none;font-weight:600">আবার চেষ্টা করুন</a></p>
+  </div></body></html>`;
+  return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
 }
 
 function createWindow() {
@@ -60,10 +74,13 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,         // preload-এ BACKEND_URL পাঠাতে sandbox বন্ধ রাখতে হয়
-      spellcheck: false,
-      // Django API call-এর জন্য CORS নিরাপত্তা শিথিল
-      webSecurity: BACKEND_URL ? false : true
+      spellcheck: false
+      // webSecurity চালু থাকে — পাতা আর API একই origin-এ, তাই CORS শিথিল করার দরকার নেই
     }
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, code, desc, url, isMainFrame) => {
+    if (isMainFrame && url.startsWith(BACKEND_URL)) mainWindow.loadURL(offlinePage());
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -83,11 +100,7 @@ function createWindow() {
     }
   });
 
-  if (BACKEND_URL) {
-    mainWindow.loadURL(BACKEND_URL + '/');
-  } else {
-    mainWindow.loadFile(path.join(__dirname, 'index.html'));
-  }
+  mainWindow.loadURL(BACKEND_URL + '/index.html');
 
   mainWindow.on('closed', () => { mainWindow = null; });
 }
@@ -130,13 +143,7 @@ function buildMenu() {
 
 function go(page) {
   if (!mainWindow) return;
-  if (BACKEND_URL) {
-    // Django URL-এ যাওয়া (HTML extension ছাড়া)
-    const slug = page.replace('.html', '');
-    mainWindow.loadURL(BACKEND_URL + '/' + slug + '/');
-  } else {
-    mainWindow.loadFile(path.join(__dirname, page));
-  }
+  mainWindow.loadURL(BACKEND_URL + '/' + page);
 }
 
 app.whenReady().then(() => {

@@ -1,61 +1,15 @@
-// মৌখামার — data layer (data.js-এর পরে, app.js-এর আগে load হয়)
+// মৌখামার — data layer
 //
-// Django backend চালু থাকলে API.useBackend = true (নিচে দেখুন)
-// চালু না থাকলে localStorage-এ sample data থেকে কাজ চলে।
+// সব তথ্য Django backend থেকে আসে (একই origin: http://127.0.0.1:8000)।
+// আগে বেশিরভাগ পাতা data.js-এর নমুনা তথ্য আর localStorage দিয়ে চলত —
+// এখন MK.start() প্রথমে লগ ইন যাচাই করে, তারপর পাতার দরকারি তথ্য API
+// থেকে এনে পুরনো global তালিকাগুলোতে (FARMS, HIVES …) একই আকারে বসায়।
 
-const STORE_KEY = 'mk-data-v1';
 const SESSION_KEY = 'mk-session';
 
-// যেসব তালিকা ব্যবহারকারী বদলাতে পারে — শুধু এগুলোই সংরক্ষণ হয়
-function savedLists() {
-  const out = {};
-  if (typeof FARMS !== 'undefined') out.FARMS = FARMS;
-  if (typeof HIVES !== 'undefined') out.HIVES = HIVES;
-  if (typeof INSPECTIONS !== 'undefined') out.INSPECTIONS = INSPECTIONS;
-  if (typeof HARVESTS !== 'undefined') out.HARVESTS = HARVESTS;
-  if (typeof NOTIFICATIONS !== 'undefined') out.NOTIFICATIONS = NOTIFICATIONS;
-  return out;
-}
-
-const HIVE_EVENTS = {};
-const QUEENS = {};
-const USERS = [];
-
-const Store = {
-  load() {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { saved = null; }
-    if (!saved) return;
-    Object.entries(savedLists()).forEach(([name, list]) => {
-      if (Array.isArray(saved[name])) list.splice(0, list.length, ...saved[name]);
-    });
-    Object.assign(HIVE_EVENTS, saved.HIVE_EVENTS || {});
-    Object.assign(QUEENS, saved.QUEENS || {});
-    USERS.splice(0, USERS.length, ...(saved.USERS || []));
-  },
-
-  save() {
-    let prev = {};
-    try { prev = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { prev = {}; }
-    const out = Object.assign(prev, savedLists(), { HIVE_EVENTS, QUEENS, USERS });
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(out)); } catch (e) {}
-  },
-
-  reset() {
-    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
-    location.reload();
-  },
-
-  nextId(list) {
-    return list.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0) + 1;
-  },
-
-  addHiveEvent(code, type, color, text) {
-    (HIVE_EVENTS[code] = HIVE_EVENTS[code] || []).unshift([todayShort(), type, color, text]);
-  }
-};
-
 // ---- লগ ইন session ----
+// শুধু sidebar-এ নাম দেখানোর জন্য cache; আসল লগ ইন Django session cookie-তে।
+// পাসওয়ার্ড কখনো এখানে রাখা হয় না।
 const Session = {
   get() {
     try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch (e) { return null; }
@@ -67,16 +21,6 @@ const Session = {
     try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
   }
 };
-
-// demo ব্যবহারকারী (backend না থাকলে)
-const DEMO_USERS = [
-  { phone: '01712345678', password: 'demo1234', role: 'farmer', name: 'রহিম উদ্দিন', district: 'সিরাজগঞ্জ', upazila: 'উল্লাপাড়া', farm: 'রহিম মৌখামার', exp: 8 },
-  { phone: '01812345678', password: 'demo1234', role: 'cropper', name: 'মো. আলমগীর', district: 'সিরাজগঞ্জ', upazila: 'উল্লাপাড়া', crop: 'সরিষা' }
-];
-
-function findUser(phone) {
-  return USERS.find((u) => u.phone === phone) || DEMO_USERS.find((u) => u.phone === phone);
-}
 
 function validPhone(p) {
   return /^01[3-9]\d{8}$/.test(String(p).replace(/[^\d]/g, ''));
@@ -94,6 +38,11 @@ function todayLong(d = new Date()) {
 function todayShort(d = new Date()) {
   return `${toBnDigits(d.getDate())} ${BN_MONTHS_SHORT[d.getMonth()]} ${toBnDigits(d.getFullYear())}`;
 }
+// API-তে পাঠানোর তারিখ: 2026-11-28 (স্থানীয় সময়ে)
+function isoDate(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 function greeting(d = new Date()) {
   const h = d.getHours();
   if (h < 5) return 'শুভ রাত্রি';
@@ -104,38 +53,13 @@ function greeting(d = new Date()) {
 }
 
 // ---- Django API ----
-// Django backend: http://127.0.0.1:8000
-// Electron দিয়ে চালালে MK_BACKEND_URL=http://127.0.0.1:8000 npm start
-//
-// API Endpoints:
-//   POST   /api/auth/login/            { phone, password }  → { user }
-//   POST   /api/auth/register/         { name, phone, password, role, ... }
-//   POST   /api/auth/logout/
-//   GET    /api/auth/me/               → বর্তমান ব্যবহারকারী
-//   PATCH  /api/auth/me/               প্রোফাইল আপডেট
-//   GET    /api/dashboard/             → সারাংশ তথ্য
-//   GET    /api/farms/                 POST /api/farms/
-//   GET    /api/hives/?farm=<id>       POST /api/hives/
-//   GET    /api/hives/<code>/
-//   POST   /api/inspections/           পরিদর্শন যোগ
-//   GET    /api/harvests/              POST /api/harvests/
-//   GET    /api/notifications/
-//   POST   /api/notifications/read-all/
-//   POST   /api/spray-alerts/          স্প্রে নোটিশ
-//   GET    /api/community/posts/       POST
-//   POST   /api/community/posts/<id>/upvote/
-//   POST   /api/community/posts/<id>/comments/
-//   GET    /api/diseases/   /api/flora/   /api/farmers/
-
+// সব endpoint-এর তালিকা backend-এর README-তে। পাতা আর API একই origin-এ,
+// তাই session cookie আপনা থেকে যায়, আর CSRF token cookie থেকে পড়া যায়।
 const API = {
-  // ডেস্কটপ অ্যাপে backend URL Electron থেকে পাওয়া যায় অথবা ডিফল্ট লোকালহোস্ট
-  get useBackend() {
-    return true;
-  },
   get base() {
-    if (window._backendUrl) return window._backendUrl.replace(/\/$/, '') + '/api/';
-    if (window.location && window.location.protocol === 'http:') return '/api/';
-    return 'http://127.0.0.1:8000/api/';
+    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') return '/api/';
+    // file:// থেকে খুললে (backend ছাড়া) — লগ ইন কাজ করবে না, তবু পথটা দেখানো
+    return (window._backendUrl || 'http://127.0.0.1:8000').replace(/\/$/, '') + '/api/';
   },
 
   csrfToken() {
@@ -144,24 +68,187 @@ const API = {
   },
 
   async request(method, path, body) {
-    const res = await fetch(this.base + path.replace(/^\//, ''), {
-      method,
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': this.csrfToken(),
-        Accept: 'application/json'
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
+    let res;
+    try {
+      res = await fetch(this.base + path.replace(/^\//, ''), {
+        method,
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': this.csrfToken(),
+          Accept: 'application/json'
+        },
+        body: body ? JSON.stringify(body) : undefined
+      });
+    } catch (e) {
+      throw Object.assign(new Error('সার্ভারের সাথে সংযোগ হচ্ছে না — backend চালু আছে কিনা দেখুন'), { status: 0 });
+    }
     const data = res.status === 204 ? null : await res.json().catch(() => null);
-    if (!res.ok) throw Object.assign(new Error((data && (data.detail || data.error)) || res.statusText), { status: res.status, data });
+    if (!res.ok) throw Object.assign(new Error(API.message(data) || res.statusText), { status: res.status, data });
     return data;
   },
+
+  // DRF-এর ভুলের উত্তর থেকে পড়ার মতো প্রথম বার্তা
+  message(data) {
+    if (!data) return '';
+    if (typeof data === 'string') return data;
+    if (data.detail) return data.detail;
+    for (const v of Object.values(data)) {
+      if (Array.isArray(v) && v.length) return typeof v[0] === 'string' ? v[0] : API.message(v[0]);
+      if (typeof v === 'string') return v;
+    }
+    return '';
+  },
+
   get(path) { return this.request('GET', path); },
-  post(path, body) { return this.request('POST', path, body); },
-  patch(path, body) { return this.request('PATCH', path, body); },
+  post(path, body) { return this.request('POST', path, body || {}); },
+  patch(path, body) { return this.request('PATCH', path, body || {}); },
   del(path) { return this.request('DELETE', path); }
 };
 
-Store.load();
+// ---- backend থেকে আসা সারি → পাতাগুলো যে আকার চেনে ----
+const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+
+const MK = {
+  // relative সময়: "৩ ঘণ্টা আগে"
+  ago(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const s = Math.max(0, (Date.now() - d.getTime()) / 1000);
+    if (s < 60) return 'এইমাত্র';
+    if (s < 3600) return toBnDigits(Math.floor(s / 60)) + ' মিনিট আগে';
+    if (s < 86400) return toBnDigits(Math.floor(s / 3600)) + ' ঘণ্টা আগে';
+    if (s < 86400 * 30) return toBnDigits(Math.floor(s / 86400)) + ' দিন আগে';
+    return todayShort(d);
+  },
+  // '2026-11-20' → '২০ নভে ২০২৬'
+  date(iso) {
+    if (!iso) return '—';
+    const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number);
+    return todayShort(new Date(y, m - 1, d));
+  },
+
+  map: {
+    farm: (r) => ({
+      id: r.id, name: r.name, upazila: r.upazila_name || '', district: r.district || '',
+      flora: (r.flora || []).join(', ') || '—', floraList: r.flora || [],
+      status: r.status, since: r.since, established: r.established_on,
+      type: r.farm_type, lat: num(r.lat), lng: num(r.lng),
+      hiveCount: r.hive_count, queenless: r.queenless_count
+    }),
+    // /api/hives/status/ — v_hive_status ভিউ থেকে
+    hive: (r) => ({
+      id: r.id, code: r.code, farm: r.farm, farmName: r.farm_name, species: r.species,
+      frames: r.frames, filled: r.filled, state: r.state,
+      queen: r.queen, queenAge: r.queenAge, queenSource: r.queen_source, queenColor: r.queen_color,
+      last: r.last, overdue: r.overdue, lastInspection: r.last_inspection,
+      honeyKg: num(r.honey_kg) || 0, lastHarvest: r.last_harvest
+    }),
+    inspection: (r) => ({
+      id: r.id, hive: r.hive_code, hiveId: r.hive, date: r.date,
+      framesFilled: r.frames_filled, state: r.state,
+      queenSeen: r.queen_seen, eggsSeen: r.eggs_seen, notes: r.notes || '',
+      inspector: r.inspector_name || '', diseases: r.diseases || []
+    }),
+    harvest: (r) => ({
+      id: r.id, hive: r.hive_code, hiveId: r.hive, date: r.date,
+      kg: num(r.kg) || 0, moisture: num(r.moisture), flora: r.flora_name || '', floraId: r.flora,
+      notes: r.notes || '', harvester: r.harvester_name || ''
+    }),
+    notification: (r) => ({
+      id: r.id, kind: r.kind, unread: r.unread, title: r.title, body: r.body,
+      refTable: r.ref_table, refId: r.ref_id, createdAt: r.created_at, when: MK.ago(r.created_at)
+    })
+  },
+
+  // পাতার দরকারি তথ্য এনে global তালিকায় বসানো। নাম দিলে সেটাই আনে:
+  //   await MK.load('farms', 'hives', 'notifications')
+  loaders: {
+    farms: async () => fill(FARMS, (await API.get('farms/')).map(MK.map.farm)),
+    hives: async () => fill(HIVES, (await API.get('hives/status/')).map(MK.map.hive)),
+    notifications: async () => fill(NOTIFICATIONS, (await API.get('notifications/')).map(MK.map.notification)),
+    farmers: async () => fill(FARMERS, await API.get('farmers/')),
+    inspections: async () => fill(INSPECTIONS, (await API.get('inspections/')).map(MK.map.inspection)),
+    harvests: async () => fill(HARVESTS, (await API.get('harvests/')).map(MK.map.harvest)),
+    outbreaks: async () => fill(OUTBREAKS, await API.get('outbreaks/')),
+    flora: async () => fill(FLORA, await API.get('flora/')),
+    diseases: async () => {
+      const [list, symptoms] = await Promise.all([API.get('diseases/'), API.get('symptoms/')]);
+      fill(DISEASES, list);
+      Object.keys(SYMPTOMS).forEach((k) => delete SYMPTOMS[k]);
+      Object.assign(SYMPTOMS, symptoms);
+    }
+  },
+
+  async load(...names) {
+    await Promise.all(names.map((n) => {
+      if (!MK.loaders[n]) throw new Error('অচেনা loader: ' + n);
+      return MK.loaders[n]();
+    }));
+  },
+
+  // প্রতিটা ভেতরের পাতার শুরু:
+  //   MK.start(['farms', 'hives'], () => { ...render... })
+  // লগ ইন না থাকলে লগ ইন পাতায় পাঠায়; options.admin দিলে শুধু অ্যাডমিন।
+  async start(names, render, options = {}) {
+    let me;
+    try {
+      me = await API.get('auth/me/');
+    } catch (e) {
+      if (e.status === 401 || e.status === 403) {
+        Session.clear();
+        const here = location.pathname.split('/').pop() + location.search;
+        location.replace('index.html?next=' + encodeURIComponent(here));
+        return;
+      }
+      MK.fail(e);
+      return;
+    }
+    Session.set(me);
+    MK.me = me;
+    if (options.admin && !MK.isAdmin(me)) {
+      location.replace('dashboard.html');
+      return;
+    }
+    try {
+      await MK.load(...new Set([...(names || []), 'notifications']));
+    } catch (e) {
+      MK.fail(e);
+      return;
+    }
+    MK.unread = NOTIFICATIONS.filter((n) => n.unread).length;
+    if (typeof renderSidebar === 'function') renderSidebar();
+    try {
+      await render(me);
+    } catch (e) {
+      console.error(e);
+      MK.fail(e);
+    }
+  },
+
+  isAdmin(u) {
+    return !!u && (u.role === 'admin' || u.is_staff || u.is_superuser);
+  },
+
+  // ভুল হলে পাতার উপরে একটা বার্তা
+  fail(e) {
+    const msg = (e && e.message) || 'কিছু একটা ভুল হয়েছে';
+    if (typeof toast === 'function') toast(msg);
+    const main = document.querySelector('main') || document.body;
+    if (main && !document.getElementById('mk-error')) {
+      const div = document.createElement('div');
+      div.id = 'mk-error';
+      div.className = 'err';
+      div.setAttribute('role', 'alert');
+      div.style.cssText = 'margin:12px 0;padding:12px 16px;border-radius:10px;background:#FBE9E7;color:#8C2A12';
+      div.textContent = msg;
+      main.prepend(div);
+    }
+  }
+};
+
+// global তালিকার ভেতরের জিনিস বদলানো (তালিকাটা const, তাই নতুন করে বসানো যায় না)
+function fill(list, rows) {
+  list.splice(0, list.length, ...(rows || []));
+  return list;
+}

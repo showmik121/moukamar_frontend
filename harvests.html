@@ -14,11 +14,13 @@
   .rank-row .nm { flex: 1; }
   .moist-ok { color: var(--green); font-weight: 600; }
   .moist-hi { color: var(--honey-ink); font-weight: 600; }
+  #season { flex: none; }
+  #season button { white-space: nowrap; padding: 0 14px; min-height: 36px; }
 </style>
 </head>
 <body>
 <div class="layout">
-  <aside class="sidebar" data-active="harvests"></aside>
+  <aside class="sidebar" data-active="hives"></aside>
 
   <main class="main">
     <header class="page-head">
@@ -29,16 +31,16 @@
       <a class="btn primary" href="#new">+ সংগ্রহ লিখুন</a>
     </header>
 
-    <section class="kpis" id="kpis" aria-label="সারাংশ"></section>
+    <section class="stats" id="kpis" aria-label="সারাংশ" style="margin-bottom:4px"></section>
 
     <div class="dash-grid">
       <div class="dash-col">
         <section class="card">
           <div class="card-head">
             <h2>সংগ্রহের তালিকা</h2>
-            <div class="seg-sm" role="group" aria-label="মৌসুম" id="season">
-              <button type="button" aria-pressed="true" data-s="now">এই মৌসুম</button>
-              <button type="button" aria-pressed="false" data-s="last">গত মৌসুম</button>
+            <div class="seg" role="group" aria-label="বছর" id="season">
+              <button type="button" aria-pressed="true" data-s="now">এ বছর</button>
+              <button type="button" aria-pressed="false" data-s="last">গত বছর</button>
               <button type="button" aria-pressed="false" data-s="">সব</button>
             </div>
           </div>
@@ -69,13 +71,19 @@
           <label class="field">ফুলের উৎস
             <select id="flora"></select>
           </label>
+          <label class="field">তারিখ
+            <input type="date" id="date">
+          </label>
+          <label class="field">মন্তব্য
+            <input type="text" id="notes" placeholder="ঐচ্ছিক">
+          </label>
           <div class="err" id="err" role="alert"></div>
           <button class="btn primary" type="button" id="save">সংগ্রহ সংরক্ষণ করুন</button>
-          <div class="sub">ভালো মধুতে আর্দ্রতা প্রায় ১৮–২০%। ৩০%-এর বেশি হলে সিস্টেম নেবে না।</div>
+          <div class="sub">ভালো মধুতে আর্দ্রতা প্রায় ১৮–২০%। ৩০%-এর বেশি হলে সিস্টেম নেবে না। আর্দ্রতা না মাপলে ঘরটা খালি রাখুন।</div>
         </section>
 
         <section class="card">
-          <div class="card-head"><h2>সেরা বাক্স</h2><span class="sub">দুই মৌসুম মিলিয়ে</span></div>
+          <div class="card-head"><h2>সেরা বাক্স</h2><span class="sub">সব সংগ্রহ মিলিয়ে</span></div>
           <div id="rank"></div>
         </section>
       </div>
@@ -87,78 +95,122 @@
 <script src="js/store.js"></script>
 <script src="js/app.js"></script>
 <script>
+  // মধু সংগ্রহ — তালিকা, সারাংশ, সেরা বাক্স আর নতুন সংগ্রহ লেখা।
+  // মৌসুম = ক্যালেন্ডার বছর (backend-এর sp_season_report-ও বছর ধরে হিসাব করে)।
+  // লেখার কাজ sp_add_harvest procedure করে — আর্দ্রতা, পরিমাণ আর তারিখ যাচাই,
+  // মধু সংগ্রহ লেখা আর বাক্সের ইতিহাসে ঘটনা, একটা transaction-এ।
+  const $ = (id) => document.getElementById(id);
+  const THIS_YEAR = new Date().getFullYear();
+  const yearOf = (h) => Number(String(h.date).slice(0, 4));
+  const SEASON = { now: (h) => yearOf(h) === THIS_YEAR, last: (h) => yearOf(h) === THIS_YEAR - 1, '': () => true };
+  const round = (n) => Math.round(n * 100) / 100;
+  const sum = (arr) => round(arr.reduce((s, h) => s + h.kg, 0));
   let season = 'now';
-  const sum = (arr) => arr.reduce((s, h) => s + h.kg, 0);
 
   function renderKpis() {
-    const now = HARVESTS.filter((h) => h.season === 'now');
-    const last = HARVESTS.filter((h) => h.season === 'last');
-    const avgM = HARVESTS.reduce((s, h) => s + h.moist, 0) / HARVESTS.length;
+    const withM = HARVESTS.filter((h) => h.moisture !== null && h.moisture !== undefined);
+    const avgM = withM.length ? withM.reduce((s, h) => s + h.moisture, 0) / withM.length : null;
     const items = [
-      { k: 'এই মৌসুমে', v: bn(Math.round(sum(now) * 10) / 10), small: 'কেজি', ic: 'harvests', c: 'honey' },
-      { k: 'গত মৌসুমে', v: bn(sum(last)), small: 'কেজি', ic: 'calendar', c: 'green' },
-      { k: 'গড় আর্দ্রতা', v: bn(avgM.toFixed(1)), small: '%', ic: 'flower', c: 'blue' },
+      { k: `এ বছর (${bn(String(THIS_YEAR))})`, v: bn(sum(HARVESTS.filter(SEASON.now))), small: 'কেজি', ic: 'harvests', c: 'honey' },
+      { k: `গত বছর (${bn(String(THIS_YEAR - 1))})`, v: bn(sum(HARVESTS.filter(SEASON.last))), small: 'কেজি', ic: 'calendar', c: 'green' },
+      { k: 'গড় আর্দ্রতা', v: avgM === null ? '—' : bn(avgM.toFixed(1)), small: avgM === null ? '' : '%', ic: 'flower', c: 'blue' },
       { k: 'মোট সংগ্রহ', v: bn(HARVESTS.length), small: 'বার', ic: 'hives', c: 'honey' }
     ];
-    document.getElementById('kpis').innerHTML = items.map((x) =>
-      `<div class="kpi"><div class="kpi-top"><span class="k">${x.k}</span><span class="kpi-ic ${x.c}">${icon(x.ic)}</span></div><div class="v">${x.v} <small>${x.small}</small></div></div>`).join('');
+    // .stat — style.css-এ সাজানো (আগের .kpi ক্লাসের কোনো CSS ছিল না)
+    $('kpis').innerHTML = items.map((x) =>
+      `<div class="stat"><div class="k">${x.k}</div><div class="v${x.c === 'honey' ? ' honey' : ''}">${x.v} <small style="font-size:15px;font-weight:500">${x.small}</small></div></div>`).join('');
   }
 
   function renderLog() {
-    const rows = HARVESTS.filter((h) => !season || h.season === season);
-    document.getElementById('log').innerHTML = rows.map((h) => `
-      <tr><td>${h.date}</td><td><a href="hive.html?code=${h.hive}"><b>${h.hive}</b></a></td><td>${h.flora}</td>
+    const rows = HARVESTS.filter(SEASON[season]);
+    $('log').innerHTML = rows.map((h) => `
+      <tr><td>${MK.date(h.date)}</td><td><a href="hive.html?code=${encodeURIComponent(h.hive)}"><b>${escapeHtml(h.hive)}</b></a></td><td>${escapeHtml(h.flora || 'মিশ্র ফুল')}</td>
       <td class="num"><b>${bn(h.kg)}</b> কেজি</td>
-      <td class="num"><span class="${h.moist <= 21 ? 'moist-ok' : 'moist-hi'}">${bn(h.moist)}%</span></td></tr>`).join('')
-      || '<tr><td colspan="5" class="empty">কোনো সংগ্রহ নেই</td></tr>';
-    document.getElementById('total').textContent = bn(Math.round(sum(rows) * 10) / 10) + ' কেজি';
+      <td class="num">${h.moisture === null ? '<span class="sub">—</span>' : `<span class="${h.moisture <= 21 ? 'moist-ok' : 'moist-hi'}">${bn(h.moisture)}%</span>`}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="empty">এই সময়ে কোনো সংগ্রহ নেই</td></tr>';
+    $('total').textContent = bn(sum(rows)) + ' কেজি';
   }
 
-  // backend-এ: SELECT hive_id, SUM(kg), RANK() OVER (ORDER BY SUM(kg) DESC) ...
+  // backend-এ একই হিসাব: SELECT hive_id, SUM(kg) ... GROUP BY hive_id ORDER BY 2 DESC
   function renderRank() {
     const by = {};
     HARVESTS.forEach((h) => { by[h.hive] = (by[h.hive] || 0) + h.kg; });
     const rows = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (!rows.length) {
+      $('rank').innerHTML = '<div class="empty">এখনো কোনো মধু সংগ্রহ লেখা হয়নি</div>';
+      return;
+    }
     const max = rows[0][1];
-    document.getElementById('rank').innerHTML = rows.map(([code, kg], i) => `
-      <a class="rank-row" href="hive.html?code=${code}">
+    $('rank').innerHTML = rows.map(([code, kg], i) => `
+      <a class="rank-row" href="hive.html?code=${encodeURIComponent(code)}">
         <span class="rank ${i === 0 ? 'top' : ''}">${bn(i + 1)}</span>
-        <span class="nm"><b>${code}</b><span class="progress" style="display:block;margin-top:6px"><i style="width:${Math.round(kg / max * 100)}%"></i></span></span>
-        <b>${bn(Math.round(kg * 10) / 10)} কেজি</b></a>`).join('');
+        <span class="nm"><b>${escapeHtml(code)}</b><span class="progress" style="display:block;margin-top:6px"><i style="width:${Math.round(kg / max * 100)}%"></i></span></span>
+        <b>${bn(round(kg))} কেজি</b></a>`).join('');
   }
 
-  document.getElementById('season').addEventListener('click', (e) => {
-    const b = e.target.closest('button');
-    if (!b) return;
-    season = b.dataset.s;
+  function setSeason(s) {
+    season = s;
+    document.querySelectorAll('#season button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === s)));
     renderLog();
-  });
+  }
 
-  const params = new URLSearchParams(location.search);
-  document.getElementById('hive').innerHTML = HIVES.filter((h) => h.queen === 'আছে').map((h) => `<option>${h.code}</option>`).join('');
-  if (params.get('code')) document.getElementById('hive').value = params.get('code');
-  document.getElementById('flora').innerHTML = FLORA.filter((f) => !f.dearth).map((f) => `<option>${f.name}</option>`).join('') + '<option selected>মিশ্র ফুল</option>';
-
-  // আর্দ্রতা যাচাই — database-এ CHECK (moisture BETWEEN 10 AND 30)
-  document.getElementById('save').addEventListener('click', () => {
-    const kg = Number(document.getElementById('kg').value);
-    const moist = Number(document.getElementById('moist').value);
-    const err = document.getElementById('err');
-    if (!(kg > 0)) { err.textContent = 'পরিমাণ ০-এর বেশি হতে হবে'; return; }
-    if (!(moist >= 10 && moist <= 30)) { err.textContent = 'আর্দ্রতা ১০% থেকে ৩০%-এর মধ্যে হতে হবে'; return; }
-    err.textContent = '';
-    const hive = document.getElementById('hive').value;
-    HARVESTS.unshift({ date: todayShort(), month: new Date().getMonth() + 1, season: 'now', hive, flora: document.getElementById('flora').value, kg, moist });
-    Store.addHiveEvent(hive, 'সংগ্রহ', 'honey', `মধু ${bn(kg)} কেজি (${HARVESTS[0].flora}) · আর্দ্রতা ${bn(moist)}%`);
-    Store.save();
-    document.getElementById('kg').value = ''; document.getElementById('moist').value = '';
-    season = 'now';
-    document.querySelectorAll('#season button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.s === 'now'));
+  function renderAll() {
     renderKpis(); renderLog(); renderRank();
-    toast(`${hive} থেকে ${bn(kg)} কেজি মধু সংরক্ষণ হয়েছে`);
-  });
+  }
 
-  renderKpis(); renderLog(); renderRank();
+  MK.start(['hives', 'harvests', 'flora'], () => {
+    const params = new URLSearchParams(location.search);
+    const hiveSel = $('hive');
+    hiveSel.innerHTML = HIVES.map((h) => `<option value="${h.id}">${escapeHtml(h.code)} · ${escapeHtml(h.farmName)}${h.queen === 'নেই' ? ' (রানীহীন)' : ''}</option>`).join('');
+    const fromUrl = HIVES.find((h) => h.code === params.get('code'));
+    if (fromUrl) hiveSel.value = String(fromUrl.id);
+    $('flora').innerHTML = FLORA.filter((f) => !f.dearth).map((f) => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('')
+      + '<option value="" selected>মিশ্র ফুল</option>';
+    $('date').value = isoDate();
+    $('date').max = isoDate();
+    if (!HIVES.length) {
+      $('save').disabled = true;
+      $('err').textContent = 'আগে "খামার ও বাক্স" পাতা থেকে একটা বাক্স যোগ করুন';
+    }
+
+    $('season').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (b) setSeason(b.dataset.s);
+    });
+
+    // আর্দ্রতার নিয়ম ডাটাবেজেও আছে — CHECK (moisture <= 30) আর sp_add_harvest
+    $('save').addEventListener('click', async (e) => {
+      const err = $('err');
+      const hive = HIVES.find((h) => h.id === Number(hiveSel.value));
+      const kg = Number($('kg').value);
+      const moistRaw = $('moist').value.trim();
+      const moist = moistRaw === '' ? null : Number(moistRaw);
+      if (!hive) { err.textContent = 'বাক্স বাছুন'; return; }
+      if (!$('date').value) { err.textContent = 'তারিখ দিন'; return; }
+      if (!(kg > 0)) { err.textContent = 'পরিমাণ ০-এর বেশি হতে হবে'; return; }
+      if (moist !== null && !(moist >= 10 && moist <= 30)) { err.textContent = 'আর্দ্রতা ১০% থেকে ৩০%-এর মধ্যে হতে হবে'; return; }
+      err.textContent = '';
+      e.target.disabled = true;
+      try {
+        const floraId = $('flora').value;
+        await API.post('harvests/', {
+          hive: hive.id, date: $('date').value, kg, moisture: moist,
+          flora: floraId ? Number(floraId) : null, notes: $('notes').value.trim()
+        });
+        await MK.load('harvests');
+        $('kg').value = ''; $('moist').value = ''; $('notes').value = '';
+        renderAll();
+        setSeason(yearOf({ date: $('date').value }) === THIS_YEAR ? 'now' : '');
+        toast(`${hive.code} থেকে ${bn(kg)} কেজি মধু সংরক্ষণ হয়েছে`);
+      } catch (ex) {
+        err.textContent = ex.message || 'সংগ্রহ সংরক্ষণ হয়নি';
+      } finally {
+        e.target.disabled = false;
+      }
+    });
+
+    renderAll();
+  });
 </script>
 </body>
 </html>

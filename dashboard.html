@@ -15,8 +15,8 @@
   <main class="main">
     <header class="page-head">
       <div>
-        <div class="sub">সোমবার, ২ নভেম্বর ২০২৬ · সরিষা মৌসুম শুরু হচ্ছে</div>
-        <h1>স্বাগতম, রহিম ভাই</h1>
+        <div class="sub" id="headSub"></div>
+        <h1 id="welcome">স্বাগতম</h1>
       </div>
       <div class="btns">
         <a class="btn" href="community.html">
@@ -27,8 +27,8 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>
           খামার ম্যাপ
         </a>
-        <a class="btn" href="hive.html?code=MK-014#harvest">মধু সংগ্রহ লিখুন</a>
-        <a class="btn primary" href="hive.html?code=MK-014#inspect">+ নতুন পরিদর্শন</a>
+        <a class="btn" href="harvests.html" id="harvestLink">মধু সংগ্রহ লিখুন</a>
+        <a class="btn primary" href="inspections.html" id="inspectLink">+ নতুন পরিদর্শন</a>
       </div>
     </header>
 
@@ -53,7 +53,7 @@
       <section class="card grow-3">
         <div class="card-head">
           <h2>মাসভিত্তিক মধু উৎপাদন (কেজি)</h2>
-          <span class="sub">গত মৌসুম, ডিসেম্বর ২০২৫ – মে ২০২৬</span>
+          <span class="sub" id="barsSub"></span>
         </div>
         <div class="bars" id="bars" role="img" aria-label="মাসভিত্তিক মধু উৎপাদন"></div>
         <div class="bar-labels" id="barLabels"></div>
@@ -83,105 +83,154 @@
       </section>
 
       <section class="card grow-2">
-        <h2>আজকের কাজ</h2>
-        <div>
-          <label class="check" style="border-bottom:1px solid var(--line-2)"><input type="checkbox"><span style="flex:1">MK-014 বাক্সে নতুন রানী বসানো</span><span class="sub">বেলকুচি</span></label>
-          <label class="check" style="border-bottom:1px solid var(--line-2)"><input type="checkbox"><span style="flex:1">৫টা বাক্সে পরিদর্শন বাকি</span><span class="sub">তিন খামার</span></label>
-          <label class="check" style="border-bottom:1px solid var(--line-2)"><input type="checkbox"><span style="flex:1">MK-003-এ ভ্যারোয়া পরীক্ষা</span><span class="sub">চর ঘাটিনা</span></label>
-          <label class="check"><input type="checkbox"><span style="flex:1">MK-015 থেকে মধু সংগ্রহ</span><span class="sub">বেলকুচি</span></label>
+        <div class="card-head">
+          <h2>আজকের কাজ</h2>
+          <button class="btn" type="button" id="remindBtn" hidden style="font-size:14px">বাকি পরিদর্শনের সতর্কতা পাঠান</button>
         </div>
+        <div id="tasks"></div>
       </section>
     </div>
   </main>
 </div>
 
-<script src="js/store.js"></script>
 <script src="js/data.js"></script>
+<script src="js/store.js"></script>
 <script src="js/app.js"></script>
 <script>
-  // ব্যবহারকারীর প্রোফাইল অনুযায়ী নাম ও স্বাগতম বার্তা
-  const user = (typeof Session !== 'undefined' && Session.get()) ? Session.get() : null;
-  const isDemo = !user || user.phone === '01712345678' || user.phone === '01812345678';
-  
-  if (user) {
-    const greetingName = user.name ? user.name : 'খামারি ভাই';
-    const headH1 = document.querySelector('.page-head h1');
-    if (headH1) headH1.textContent = `স্বাগতম, ${greetingName}`;
-    
-    // সাবটাইটেল
-    const headSub = document.querySelector('.page-head .sub');
-    if (headSub && user.district) {
-      headSub.textContent = `${user.upazila ? user.upazila + ', ' : ''}${user.district} · মৌমাছি খামার ব্যবস্থাপনা`;
+  // সব সংখ্যা backend থেকে: /api/dashboard/ (v_farmer_dashboard ভিউ),
+  // /api/reports/monthly-honey/ (v_monthly_honey), /api/reports/season/ (sp_season_report)
+  // আর খামার/বাক্স/সতর্কতার তালিকা MK.load() দিয়ে।
+  // আগে এখানে ডেমো নম্বরের জন্য বানানো সংখ্যা (৮৬ কেজি, ৫৩০ কেজি …) বসানো ছিল।
+  const esc = escapeHtml;
+  const hiveLink = (code, hash) => `hive.html?code=${encodeURIComponent(code)}${hash || ''}`;
+  const thisYear = () => new Date().getFullYear();
+  let prevYearKg = 0;   // sp_season_report — আগের বছরের মোট মধু
+  const kg = (v) => bn(Math.round(Number(v) || 0));
+
+  MK.start(['farms', 'hives', 'flora'], async (me) => {
+    const [dash, monthly, season, lastSeason] = await Promise.all([
+      API.get('dashboard/'),
+      API.get('reports/monthly-honey/'),
+      API.get(`reports/season/?year=${thisYear()}`),
+      API.get(`reports/season/?year=${thisYear() - 1}`)
+    ]);
+    prevYearKg = lastSeason.total_kg || 0;
+    renderHead(me);
+    renderStats(dash, season);
+    renderBars(monthly);
+    renderAlerts();
+    renderFarms();
+    renderTasks();
+  });
+
+  function renderHead(me) {
+    document.getElementById('welcome').textContent = `স্বাগতম, ${me.name}`;
+    const m = new Date().getMonth() + 1;
+    const blooming = FLORA.filter((f) => !f.dearth && (f.months || []).includes(m)).map((f) => f.name);
+    const dearth = FLORA.some((f) => f.dearth && (f.months || []).includes(m));
+    const season = blooming.length ? blooming.join(', ') + ' — ফুলের মৌসুম'
+      : (dearth ? 'ফুল কম — বাক্সে খাবার দিন' : 'মৌসুমের বিরতি');
+    document.getElementById('headSub').textContent = `${todayLong()} · ${season}`;
+
+    // পরিদর্শন: যে বাক্সের পরিদর্শন সবচেয়ে বেশি দিন বাকি; মধু: সবচেয়ে বেশি ভরা ফ্রেম
+    if (HIVES.length) {
+      const byLast = HIVES.slice().sort((a, b) => (b.last ?? 999) - (a.last ?? 999))[0];
+      const byFilled = HIVES.slice().sort((a, b) => b.filled - a.filled)[0];
+      document.getElementById('inspectLink').href = hiveLink(byLast.code, '#inspect');
+      document.getElementById('harvestLink').href = hiveLink(byFilled.code, '#harvest');
     }
   }
 
-  // ব্যবহারকারী নিজস্ব খামার (নতুন অ্যাকাউন্ট হলে তার নিজস্ব খামার, ডেমো অ্যাকাউন্ট হলে ডেমো খামার)
-  let myFarms = [];
-  if (isDemo) {
-    myFarms = FARMS;
-  } else {
-    // নতুন অ্যাকাউন্টের খামার
-    const userFarms = FARMS.filter(f => f.ownerPhone === user.phone || f.name === user.farm);
-    if (userFarms.length === 0 && user.farm) {
-      const newFarm = {
-        id: FARMS.length + 1,
-        name: user.farm,
-        upazila: user.upazila || 'সদর',
-        district: user.district || 'সিরাজগঞ্জ',
-        flora: 'সরিষা ও অন্যান্য',
-        status: 'সক্রিয়',
-        since: 'এইমাত্র',
-        ownerPhone: user.phone
-      };
-      FARMS.push(newFarm);
-      if (typeof Store !== 'undefined') Store.save();
-      myFarms = [newFarm];
-    } else {
-      myFarms = userFarms;
-    }
+  function renderStats(dash, season) {
+    const withQueen = dash.hives_total - dash.hives_queenless;
+    const stats = [
+      { k: 'মোট খামার', v: bn(dash.farms_total), s: bn(dash.farms_active) + 'টা সক্রিয়' },
+      { k: 'মোট বাক্স', v: bn(dash.hives_total), s: bn(withQueen) + 'টায় রানী আছে' },
+      { k: 'রানীহীন বাক্স', v: bn(dash.hives_queenless), s: dash.hives_queenless ? 'নতুন রানী দরকার' : 'সব বাক্সে রানী আছে', cls: dash.hives_queenless ? 'red' : '' },
+      { k: 'এ বছরের মধু', v: kg(season.total_kg) + ' কেজি', s: prevYearKg ? `গত বছর ${kg(prevYearKg)} কেজি` : `সব মিলিয়ে ${kg(dash.honey_this_season)} কেজি`, cls: 'honey' },
+      { k: 'বাকি পরিদর্শন', v: bn(dash.overdue_inspections), s: dash.overdue_inspections ? '১৪ দিনের বেশি' : 'নিয়মিত হালনাগাদ' },
+      { k: 'নতুন সতর্কতা', v: bn(dash.alerts_unread), s: 'স্প্রে ও রোগ', cls: dash.alerts_unread ? 'red' : '' }
+    ];
+    document.getElementById('stats').innerHTML = stats.map((s) =>
+      `<div class="stat"><div class="k">${s.k}</div><div class="v ${s.cls || ''}">${s.v}</div><div class="s">${s.s}</div></div>`).join('');
   }
 
-  const myFarmIds = myFarms.map(f => f.id);
-  const myHives = isDemo ? HIVES : HIVES.filter(h => myFarmIds.includes(h.farm));
-  const queenless = myHives.filter((h) => h.queen === 'নেই').length;
-  const overdue = myHives.filter((h) => h.last > 14).length;
+  // গত ১২ মাস (এই মাস সহ) — যে মাসে সংগ্রহ নেই সেখানে শূন্য
+  function renderBars(rows) {
+    const now = new Date();
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const row = rows.find((r) => r.year === d.getFullYear() && r.month === d.getMonth() + 1);
+      months.push({ y: d.getFullYear(), m: d.getMonth() + 1, kg: row ? Number(row.total_kg) : 0, n: row ? row.harvests : 0 });
+    }
+    const first = months[0], last = months[months.length - 1];
+    document.getElementById('barsSub').textContent =
+      `গত ১২ মাস, ${BN_MONTHS[first.m - 1]} ${toBnDigits(first.y)} – ${BN_MONTHS[last.m - 1]} ${toBnDigits(last.y)}`;
+    const max = Math.max(...months.map((m) => m.kg)) || 1;
+    document.getElementById('bars').innerHTML = months.map((m) =>
+      `<div class="bar" title="${BN_MONTHS[m.m - 1]} ${toBnDigits(m.y)} · ${bn(m.n)} বার সংগ্রহ"><b>${m.kg ? bn(Math.round(m.kg)) : ''}</b><i style="height:${m.kg ? Math.max(4, Math.round(m.kg / max * 170)) : 2}px"></i></div>`).join('');
+    document.getElementById('barLabels').innerHTML = months.map((m) =>
+      `<span>${BN_MONTHS_SHORT[m.m - 1]}<br>${toBnDigits(String(m.y).slice(2))}</span>`).join('');
+  }
 
-  const stats = [
-    { k: 'মোট খামার', v: bn(myFarms.length), s: bn(myFarms.filter((f) => f.status === 'সক্রিয়').length) + 'টা সক্রিয়' },
-    { k: 'মোট বাক্স', v: bn(myHives.length), s: bn(myHives.length - queenless) + 'টায় রানী আছে' },
-    { k: 'রানীহীন বাক্স', v: bn(queenless), s: queenless ? 'নতুন রানী দরকার' : 'সব বাক্সে রানী আছে', cls: queenless ? 'red' : '' },
-    { k: 'এই মৌসুমে মধু', v: isDemo ? bn(86) + ' কেজি' : bn(0) + ' কেজি', s: isDemo ? 'গত মৌসুমে ' + bn(530) + ' কেজি' : 'নতুন খামার', cls: 'honey' },
-    { k: 'বাকি পরিদর্শন', v: bn(overdue), s: overdue ? '১৪ দিনের বেশি' : 'নিয়মিত হালনাগাদ' },
-    { k: 'নতুন সতর্কতা', v: bn(NOTIFICATIONS.filter((n) => n.unread).length), s: 'স্প্রে ও রোগ', cls: 'red' }
-  ];
-  document.getElementById('stats').innerHTML = stats.map((s) =>
-    `<div class="stat"><div class="k">${s.k}</div><div class="v ${s.cls || ''}">${s.v}</div><div class="s">${s.s}</div></div>`).join('');
+  function renderAlerts() {
+    const list = NOTIFICATIONS.slice(0, 3);
+    document.getElementById('alerts').innerHTML = list.length ? list.map((n) =>
+      `<a class="alert-item${n.unread ? ' unread' : ''}" href="alerts.html" style="color:inherit;text-decoration:none"><span class="dot ${n.kind === 'spray' || n.kind === 'disease' ? 'red' : 'honey'}"></span><div><b>${esc(n.title)}</b><span>${esc(n.body)} · ${esc(n.when)}</span></div></a>`).join('')
+      : '<div class="empty">কোনো সতর্কতা নেই।</div>';
+  }
 
-  // মাসভিত্তিক মধু
-  const months = isDemo 
-    ? [['ডিসে', 'সরিষা', 60], ['জানু', 'সরিষা', 140], ['ফেব্রু', 'কালোজিরা', 110], ['মার্চ', 'লিচু', 90], ['এপ্রি', 'লিচু', 100], ['মে', 'সুন্দরবন', 30]]
-    : [['ডিসে', 'সরিষা', 0], ['জানু', 'সরিষা', 0], ['ফেব্রু', 'কালোজিরা', 0], ['মার্চ', 'লিচু', 0], ['এপ্রি', 'লিচু', 0], ['মে', 'মধু', 0]];
-  const max = Math.max(...months.map((m) => m[2])) || 1;
-  document.getElementById('bars').innerHTML = months.map((m) =>
-    `<div class="bar"><b>${bn(m[2])}</b><i style="height:${m[2] ? Math.round(m[2] / max * 170) : 4}px"></i></div>`).join('');
-  document.getElementById('barLabels').innerHTML = months.map((m) => `<span>${m[0]}<br>${m[1]}</span>`).join('');
-
-  // সতর্কতা
-  document.getElementById('alerts').innerHTML = NOTIFICATIONS.slice(0, 3).map((n) =>
-    `<div class="alert-item"><span class="dot ${n.kind === 'spray' ? 'red' : 'honey'}"></span><div><b>${n.title}</b><span>${n.body}</span></div></div>`).join('');
-
-  // খামারের তালিকা
-  if (myFarms.length > 0) {
-    document.getElementById('farms').innerHTML = myFarms.map((f) => {
-      const mine = myHives.filter((h) => h.farm === f.id);
-      const ql = mine.filter((h) => h.queen === 'নেই').length;
+  function renderFarms() {
+    document.getElementById('farms').innerHTML = FARMS.length ? FARMS.map((f) => {
       const pill = f.status === 'সক্রিয়' ? 'green' : 'gray';
-      return `<tr class="link-row" onclick="location.href='hives.html?farm=${f.id}'">
-        <td><b>${f.name}</b></td><td>${f.upazila}, ${f.district}</td><td>${f.flora}</td>
-        <td class="num">${bn(mine.length)}</td><td class="num">${bn(ql)}</td><td><span class="pill ${pill}">${f.status}</span></td></tr>`;
-    }).join('');
-  } else {
-    document.getElementById('farms').innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center;padding:16px">এখনো কোনো খামার তৈরি করা হয়নি। উপরে "নতুন খামার" যোগ করুন।</td></tr>';
+      return `<tr class="link-row" onclick="location.href='hives.html?farm=${Number(f.id)}'">
+        <td><b>${esc(f.name)}</b></td><td>${esc([f.upazila, f.district].filter(Boolean).join(', '))}</td><td>${esc(f.flora)}</td>
+        <td class="num">${bn(f.hiveCount || 0)}</td><td class="num">${bn(f.queenless || 0)}</td><td><span class="pill ${pill}">${esc(f.status)}</span></td></tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty" style="text-align:center;padding:16px">এখনো কোনো খামার নেই। <a href="hives.html">খামার ও বাক্স</a> পাতায় নতুন খামার যোগ করুন।</td></tr>';
+  }
+
+  // আজকের কাজ — বাক্সের আসল অবস্থা থেকে (রানীহীন, পরিদর্শন বাকি, দুর্বল, মধু ভরা)
+  function renderTasks() {
+    const tasks = [];
+    HIVES.filter((h) => h.queen === 'নেই').forEach((h) =>
+      tasks.push({ text: `${h.code} বাক্সে নতুন রানী বসানো`, where: h.farmName, href: hiveLink(h.code) }));
+    HIVES.filter((h) => h.overdue).forEach((h) =>
+      tasks.push({ text: `${h.code}-এ পরিদর্শন বাকি` + (h.last != null ? ` (${bn(h.last)} দিন)` : ''), where: h.farmName, href: hiveLink(h.code, '#inspect') }));
+    HIVES.filter((h) => h.state === 'দুর্বল' && !h.overdue).forEach((h) =>
+      tasks.push({ text: `${h.code} দুর্বল — খাবার ও রোগ পরীক্ষা`, where: h.farmName, href: hiveLink(h.code) }));
+    HIVES.filter((h) => h.queen !== 'নেই' && h.frames && h.filled / h.frames >= 0.7).forEach((h) =>
+      tasks.push({ text: `${h.code} থেকে মধু সংগ্রহ`, where: h.farmName, href: hiveLink(h.code, '#harvest') }));
+
+    const shown = tasks.slice(0, 6);
+    document.getElementById('tasks').innerHTML = shown.length ? shown.map((t, i) =>
+      `<label class="check"${i < shown.length - 1 ? ' style="border-bottom:1px solid var(--line-2)"' : ''}><input type="checkbox"><a href="${t.href}" style="flex:1;color:inherit;text-decoration:none">${esc(t.text)}</a><span class="sub">${esc(t.where || '')}</span></label>`).join('')
+      + (tasks.length > shown.length ? `<div class="sub" style="margin-top:8px">আরও ${bn(tasks.length - shown.length)}টা কাজ — <a href="hives.html">খামার ও বাক্স</a></div>` : '')
+      : '<div class="empty">আজ কোনো জরুরি কাজ নেই — সব বাক্স ঠিক আছে।</div>';
+
+    const btn = document.getElementById('remindBtn');
+    btn.hidden = !HIVES.some((h) => h.overdue);
+    btn.onclick = remindOverdue;
+  }
+
+  // sp_notify_overdue_inspections — প্রতিটা বাকি বাক্সের জন্য একটা সতর্কতা লেখে
+  async function remindOverdue() {
+    const btn = document.getElementById('remindBtn');
+    btn.disabled = true;
+    try {
+      const res = await API.post('hives/remind-overdue/');
+      toast(res.detail);
+      await MK.load('notifications');
+      MK.unread = NOTIFICATIONS.filter((n) => n.unread).length;
+      renderSidebar();
+      renderAlerts();
+      const [dash, season] = await Promise.all([API.get('dashboard/'), API.get(`reports/season/?year=${thisYear()}`)]);
+      renderStats(dash, season);
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      btn.disabled = false;
+    }
   }
 </script>
 </body>

@@ -155,64 +155,21 @@
       user.main_crop = f.crop;
     }
 
-    // নতুন খামারিকে সরাসরি ম্যাপ ডেটাবেজ ও খামার তালিকায় যুক্ত করা
-    if (role === 'farmer') {
-      const coord = typeof getGeoCoord === 'function' ? getGeoCoord(f.district, f.upazila) : [24.0, 89.8];
-      if (typeof saveRegisteredFarmer === 'function') {
-        saveRegisteredFarmer({
-          name: user.name,
-          farm: user.farm || (user.name + '-এর খামার'),
-          phone: user.phone,
-          district: user.district,
-          upazila: user.upazila,
-          type: user.type || 'স্থায়ী',
-          hives: 0,
-          flora: ['সরিষা', 'মিশ্র ফুল'],
-          exp: user.exp || 1,
-          lat: coord[0],
-          lng: coord[1],
-          honeyProduced: 0,
-          activeBoxes: 0,
-          rating: 5.0,
-          regDate: typeof todayLong === 'function' ? todayLong() : 'আজ'
-        });
-      }
-      
-      // খামার তালিকায় যুক্ত করা
-      if (typeof FARMS !== 'undefined') {
-        FARMS.push({
-          id: typeof Store !== 'undefined' && Store.nextId ? Store.nextId(FARMS) : FARMS.length + 1,
-          name: user.farm,
-          upazila: user.upazila,
-          district: user.district,
-          flora: 'সরিষা ও অন্যান্য',
-          status: 'সক্রিয়',
-          since: 'আজ',
-          ownerPhone: user.phone
-        });
-      }
-    }
-
-    if (API.useBackend) {
-      try {
-        await API.post('auth/register/', user);
-      } catch (ex) {
-        if (ex.data && ex.data.phone) {
-          err.textContent = 'এই নম্বর দিয়ে আগেই নিবন্ধন হয়েছে';
-          return;
-        }
-      }
-    }
-    if (typeof findUser === 'function' && !findUser(phone) && typeof USERS !== 'undefined') {
-      USERS.push(user);
-    }
-    
-    if (typeof Store !== 'undefined') Store.save();
+    // নিবন্ধন শুধু backend-এ — ব্যবহারকারী, profile আর প্রথম খামার (জেলার
+    // অবস্থানে) একটা transaction-এ তৈরি হয়। আগে backend না পেলেও পাসওয়ার্ড
+    // সহ পুরো তথ্য localStorage-এ রেখে "নিবন্ধন সম্পন্ন" দেখানো হতো।
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
     err.textContent = '';
-    const { password, ...safe } = user;
-    Session.set(safe);
-    toast('নিবন্ধন সম্পন্ন — স্বাগতম!');
-    setTimeout(() => { location.href = role === 'cropper' ? 'alerts.html#spray' : 'dashboard.html'; }, 700);
+    try {
+      const resp = await API.post('auth/register/', user);
+      Session.set(resp.user);
+      toast('নিবন্ধন সম্পন্ন — স্বাগতম!');
+      setTimeout(() => { location.href = role === 'cropper' ? 'alerts.html#spray' : 'dashboard.html'; }, 700);
+    } catch (ex) {
+      err.textContent = ex.message || 'নিবন্ধন হয়নি — আবার চেষ্টা করুন';
+      submitBtn.disabled = false;
+    }
   });
 </script>
 </body>

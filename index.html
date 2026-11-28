@@ -47,7 +47,7 @@
       <div class="err" id="err" role="alert"></div>
       <button class="btn primary block" type="submit">লগ ইন</button>
       <p class="sub" id="regPrompt" style="margin:0">নতুন ব্যবহারকারী? <a href="register.html">নিবন্ধন করুন</a></p>
-      <div class="demo-note"><b>Demo:</b> খামারি 01712345678, কৃষক 01812345678, অ্যাডমিন admin@moukhamar.com · পাসওয়ার্ড demo1234 (বা admin123)
+      <div class="demo-note"><b>Demo:</b> খামারি 01712345678, কৃষক 01812345678 · পাসওয়ার্ড demo1234; অ্যাডমিন admin@moukhamar.com · admin1234
         <br><a href="#" id="fillDemo">demo তথ্য বসান</a></div>
     </form>
   </section>
@@ -60,18 +60,22 @@
   const inputLabel = document.getElementById('loginIdentifierLabel');
   const inputField = document.getElementById('identifier');
   const regPrompt = document.getElementById('regPrompt');
+  const submitBtn = form.querySelector('button[type="submit"]');
   const roleOf = () => (document.querySelector('[data-role][aria-pressed="true"]') || {}).dataset?.role || 'farmer';
-  const next = new URLSearchParams(location.search).get('next');
 
-  // আগে থেকে লগ ইন থাকলে সরাসরি নির্ধারিত ড্যাশবোর্ডে
-  if (Session.get() && !next) {
-    const s = Session.get();
-    if (s.role === 'admin' || s.is_staff || s.is_superuser) {
-      location.replace('admin.html');
-    } else {
-      location.replace(s.role === 'cropper' ? 'alerts.html#spray' : 'dashboard.html');
-    }
+  // ?next= শুধু অ্যাপের নিজের পাতা হতে পারে (বাইরের ঠিকানায় পাঠানো আটকাতে)
+  const nextRaw = new URLSearchParams(location.search).get('next') || '';
+  const next = /^[\w-]+\.html([?#].*)?$/.test(nextRaw) ? nextRaw : '';
+
+  function homeFor(u) {
+    if (MK.isAdmin(u)) return 'admin.html';
+    return u.role === 'cropper' ? 'alerts.html#spray' : 'dashboard.html';
   }
+
+  // আগে থেকে লগ ইন থাকলে (Django session চালু) সরাসরি নিজের পাতায়
+  API.get('auth/me/')
+    .then((me) => { Session.set(me); location.replace(next || homeFor(me)); })
+    .catch(() => Session.clear());
 
   // রোল পরিবর্তনের সাথে সাথে ইনপুট পরিবর্তন (ফোন বা ইমেইল)
   function updateRoleUI() {
@@ -111,21 +115,21 @@
     e.target.textContent = show ? 'লুকান' : 'দেখান';
   });
 
+  // seed_demo-র তৈরি করা ডেমো অ্যাকাউন্ট (backend-এর README দেখুন)
   document.getElementById('fillDemo').addEventListener('click', (e) => {
     e.preventDefault();
     const role = roleOf();
-    if (role === 'admin') {
-      inputField.value = 'admin@moukhamar.com';
-      document.getElementById('password').value = 'admin123';
-    } else if (role === 'cropper') {
-      inputField.value = '01812345678';
-      document.getElementById('password').value = 'demo1234';
-    } else {
-      inputField.value = '01712345678';
-      document.getElementById('password').value = 'demo1234';
-    }
+    const demo = {
+      admin: ['admin@moukhamar.com', 'admin1234'],
+      cropper: ['01812345678', 'demo1234'],
+      farmer: ['01712345678', 'demo1234']
+    }[role];
+    inputField.value = demo[0];
+    document.getElementById('password').value = demo[1];
   });
 
+  // লগ ইন শুধু backend দিয়ে — আগে backend না পেলে localStorage-এ রাখা
+  // পাসওয়ার্ড আর কোডে লেখা অ্যাডমিন পাসওয়ার্ড দিয়ে ঢোকা যেত
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     err.textContent = '';
@@ -138,7 +142,7 @@
       return;
     }
 
-    let payload = {};
+    let payload;
     if (role === 'admin') {
       if (!rawVal || !rawVal.includes('@')) {
         err.textContent = 'সঠিক ইমেইল অ্যাড্রেস দিন (যেমন: admin@moukhamar.com)';
@@ -154,93 +158,16 @@
       payload = { phone, password };
     }
 
-    let user = null;
-    let backendSuccess = false;
-
-    if (API.useBackend) {
-      try {
-        const resp = await API.post('auth/login/', payload);
-        if (resp && resp.user) {
-          user = resp.user;
-          backendSuccess = true;
-        }
-      } catch (ex) {
-        if (ex.status === 400 || ex.status === 401) {
-          // লোকাল স্টোরেজে আগে থেকে নিবন্ধিত থাকলে ফলব্যাক ও ব্যাকএন্ডে স্বয়ংক্রিয় সিঙ্ক
-          if (role !== 'admin' && typeof findUser === 'function') {
-            const localU = findUser(rawVal.replace(/[^\d]/g, ''));
-            if (localU && localU.password === password) {
-              user = localU;
-              API.post('auth/register/', {
-                phone: localU.phone,
-                password: localU.password,
-                password2: localU.password,
-                name: localU.name,
-                role: localU.role,
-                district: localU.district,
-                upazila: localU.upazila,
-                farm_name: localU.farm,
-                farm_type: localU.type,
-                experience: localU.exp,
-                main_crop: localU.crop
-              }).catch(() => {});
-            }
-          }
-
-          if (!user) {
-            let msg = role === 'admin' ? 'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে' : 'মোবাইল নম্বর বা পাসওয়ার্ড ভুল';
-            if (ex.data) {
-              if (typeof ex.data === 'string') msg = ex.data;
-              else if (ex.data.non_field_errors) msg = ex.data.non_field_errors[0];
-              else if (ex.data.detail) msg = ex.data.detail;
-              else if (ex.data.email) msg = ex.data.email[0];
-              else if (ex.data.phone) msg = ex.data.phone[0];
-            }
-            err.textContent = msg;
-            return;
-          }
-        }
-      }
-    }
-
-    // ব্যাকএন্ড সংযোগ না থাকলে ডেমো লোকাল ফলব্যাক
-    if (!backendSuccess) {
-      if (role === 'admin') {
-        if (rawVal.toLowerCase() === 'admin@moukhamar.com' && (password === 'admin123' || password === 'demo1234')) {
-          user = {
-            id: 1,
-            name: 'সুপার অ্যাডমিন',
-            email: 'admin@moukhamar.com',
-            role: 'admin',
-            is_staff: true,
-            is_superuser: true
-          };
-        } else {
-          err.textContent = 'অ্যাডমিন ইমেইল বা পাসওয়ার্ড ভুল হয়েছে!';
-          return;
-        }
-      } else {
-        const phone = rawVal.replace(/[^\d]/g, '');
-        user = findUser(phone);
-        if (!user || user.password !== password) {
-          err.textContent = 'মোবাইল নম্বর বা পাসওয়ার্ড ভুল হয়েছে! সঠিক তথ্য দিয়ে আবার চেষ্টা করুন।';
-          return;
-        }
-        if (user.role && user.role !== role) {
-          err.textContent = `এই নম্বরটি ${user.role === 'cropper' ? 'কৃষক' : 'খামারি'} হিসেবে নিবন্ধিত — উপরে সেই ট্যাবটি নির্বাচন করুন`;
-          return;
-        }
-      }
-    }
-
-    err.textContent = '';
-    const { password: _, ...safe } = user;
-    Session.set(safe);
-
-    if (safe.role === 'admin' || safe.is_staff || safe.is_superuser) {
-      location.href = next || 'admin.html';
-    } else {
-      location.href = next || (safe.role === 'cropper' ? 'alerts.html#spray' : 'dashboard.html');
+    submitBtn.disabled = true;
+    try {
+      const resp = await API.post('auth/login/', payload);
+      Session.set(resp.user);
+      location.href = next || homeFor(resp.user);
+    } catch (ex) {
+      err.textContent = ex.message ||
+        (role === 'admin' ? 'ইমেইল বা পাসওয়ার্ড ভুল হয়েছে' : 'মোবাইল নম্বর বা পাসওয়ার্ড ভুল');
+    } finally {
+      submitBtn.disabled = false;
     }
   });
 </script>

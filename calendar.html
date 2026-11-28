@@ -62,34 +62,54 @@
 <script src="js/store.js"></script>
 <script src="js/app.js"></script>
 <script>
+  // ফুল ও ফোটার মাস: /api/flora/ (flora + flora_blooms junction)। খামারের ফুল: /api/farms/
+  const esc = escapeHtml;
   const MONTHS = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
   const SHORT = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রি', 'মে', 'জুন', 'জুলা', 'আগ', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
-  let month = 11; // আজকের মাস (backend-এ MONTH(CURDATE()))
+  const thisMonth = new Date().getMonth() + 1;
+  let month = thisMonth;
 
   const sel = document.getElementById('month');
-  sel.innerHTML = MONTHS.map((m, i) => `<option value="${i + 1}">${m}${i + 1 === 11 ? ' (এই মাস)' : ''}</option>`).join('');
+  sel.innerHTML = MONTHS.map((m, i) => `<option value="${i + 1}">${m}${i + 1 === thisMonth ? ' (এই মাস)' : ''}</option>`).join('');
   sel.value = month;
 
-  function span(f) { return SHORT[f.months[0] - 1] + ' – ' + SHORT[f.months[f.months.length - 1] - 1]; }
+  // মাসের তালিকা বছর পেরিয়ে যেতে পারে (সরিষা: ডিসে–ফেব্রু), তাই টানা অংশ ধরে লেখা
+  function span(f) {
+    const set = new Set(f.months || []);
+    if (!set.size) return '—';
+    if (set.size === 12) return 'সারা বছর';
+    const parts = [];
+    for (let m = 1; m <= 12; m++) {
+      const prev = ((m + 10) % 12) + 1;
+      if (!set.has(m) || set.has(prev)) continue;   // একটা টানা অংশের শুরু
+      let end = m;
+      while (set.has((end % 12) + 1)) end = (end % 12) + 1;
+      parts.push(end === m ? SHORT[m - 1] : SHORT[m - 1] + ' – ' + SHORT[end - 1]);
+    }
+    return parts.join(', ');
+  }
 
   // কত মাস পরে ফুল আসবে
   function monthsUntil(f, m) {
     let best = 12;
-    f.months.forEach((x) => { const d = (x - m + 12) % 12; if (d < best) best = d; });
+    (f.months || []).forEach((x) => { const d = (x - m + 12) % 12; if (d < best) best = d; });
     return best;
   }
 
   function render() {
     // grid
     const head = '<div class="cal-row"><span></span>' + SHORT.map((s, i) => `<span class="cal-head ${i + 1 === month ? 'now' : ''}">${s}</span>`).join('') + '</div>';
-    const rows = FLORA.map((f) => {
+    // মৌসুমের ক্রমে (ডিসেম্বরের সরিষা থেকে শুরু), ফুল-কম সারি শেষে
+    const startOf = (f) => { const set = new Set(f.months || []); const m = [...set].sort((a, b) => a - b).find((x) => !set.has(((x + 10) % 12) + 1)) || 1; return m === 12 ? 0 : m; };
+    const ordered = FLORA.slice().sort((a, b) => (a.dearth - b.dearth) || (startOf(a) - startOf(b)));
+    const rows = ordered.map((f) => {
       const cells = SHORT.map((_, i) => {
-        const on = f.months.includes(i + 1);
-        return `<div class="cell ${on ? (f.dearth ? 'dearth' : 'on') : ''} ${i + 1 === month ? 'now' : ''}" title="${f.name} · ${MONTHS[i]}"></div>`;
+        const on = (f.months || []).includes(i + 1);
+        return `<div class="cell ${on ? (f.dearth ? 'dearth' : 'on') : ''} ${i + 1 === month ? 'now' : ''}" title="${esc(f.name)} · ${MONTHS[i]}"></div>`;
       }).join('');
-      return `<div class="cal-row"><div class="cal-name"><b>${f.name}</b><span>${f.where}</span></div>${cells}</div>`;
+      return `<div class="cal-row"><div class="cal-name"><b>${esc(f.name)}</b><span>${esc(f.where)}</span></div>${cells}</div>`;
     }).join('');
-    document.getElementById('cal').innerHTML = head + rows;
+    document.getElementById('cal').innerHTML = FLORA.length ? head + rows : '<div class="empty">ফুলের তালিকা পাওয়া যায়নি।</div>';
 
     // এই মাসে / আসছে
     const real = FLORA.filter((f) => !f.dearth);
@@ -98,25 +118,35 @@
     const dearth = FLORA.find((f) => f.dearth && f.months.includes(month));
     const cards = [];
     cards.push(blooming.length
-      ? `<div class="now-card hot"><div class="k">${MONTHS[month - 1]}-এ ফুল</div><b>${blooming.map((f) => f.name).join(', ')}</b><div class="s">${blooming[0].where}</div></div>`
+      ? `<div class="now-card hot"><div class="k">${MONTHS[month - 1]}-এ ফুল</div><b>${esc(blooming.map((f) => f.name).join(', '))}</b><div class="s">${esc(blooming.map((f) => f.where).join(' · '))}</div></div>`
       : `<div class="now-card"><div class="k">${MONTHS[month - 1]}-এ ফুল</div><b>তেমন কোনো ফুল নেই</b><div class="s">${dearth ? 'বর্ষা — বাক্সে খাবার দিন' : 'মৌসুমের মাঝের বিরতি'}</div></div>`);
-    if (next) cards.push(`<div class="now-card"><div class="k">পরের মৌসুম · ~${bn(monthsUntil(next, month))} মাস পরে</div><b>${next.name}</b><div class="s">${next.where}</div></div>`);
-    cards.push(`<div class="now-card"><div class="k">আপনার খামার</div><b>${bn(FARMS.filter((f) => f.status === 'সক্রিয়').length)}টা খামার সরিষার জন্য প্রস্তুত</b><div class="s">উল্লাপাড়া ও বেলকুচি</div></div>`);
+    if (next) cards.push(`<div class="now-card"><div class="k">পরের মৌসুম · ~${bn(monthsUntil(next, month))} মাস পরে</div><b>${esc(next.name)}</b><div class="s">${esc(next.where)}</div></div>`);
+
+    // আপনার খামার — যে সক্রিয় খামারের ফুলের তালিকায় এই মাসের ফুল আছে
+    if (FARMS.length) {
+      const names = blooming.map((f) => f.name);
+      const active = FARMS.filter((f) => f.status === 'সক্রিয়');
+      const ready = active.filter((f) => (f.floraList || []).some((n) => names.includes(n)));
+      const places = [...new Set(ready.map((f) => f.upazila).filter(Boolean))].join(' ও ');
+      cards.push(ready.length
+        ? `<div class="now-card"><div class="k">আপনার খামার</div><b>${bn(ready.length)}টা খামার ${esc(names.join(', '))}-এর জন্য প্রস্তুত</b><div class="s">${esc(places)}</div></div>`
+        : `<div class="now-card"><div class="k">আপনার খামার</div><b>${bn(active.length)}টা সক্রিয় খামার</b><div class="s">${blooming.length ? 'এই মাসের ফুলের কাছে কোনো খামার নেই — বাক্স সরানোর কথা ভাবুন' : 'এই মাসে ফুল নেই'}</div></div>`);
+    }
     document.getElementById('nowCards').innerHTML = cards.join('');
 
     // তালিকা
     document.getElementById('listTitle').textContent = MONTHS[month - 1] + ' মাসের হিসেবে সব ফুল';
-    document.getElementById('list').innerHTML = FLORA.filter((f) => !f.dearth)
+    document.getElementById('list').innerHTML = real.length ? real.slice()
       .sort((a, b) => monthsUntil(a, month) - monthsUntil(b, month))
       .map((f) => {
         const d = monthsUntil(f, month);
         const status = d === 0 ? '<span class="pill green">এখন ফুটছে</span>' : `<span class="pill ${d <= 2 ? 'honey' : 'gray'}">${bn(d)} মাস পরে</span>`;
-        return `<tr><td><b>${f.name}</b></td><td>${f.where}</td><td>${span(f)}</td><td>${status}</td></tr>`;
-      }).join('');
+        return `<tr><td><b>${esc(f.name)}</b></td><td>${esc(f.where)}</td><td>${span(f)}</td><td>${status}</td></tr>`;
+      }).join('') : '<tr><td colspan="4" class="empty">ফুলের তালিকা পাওয়া যায়নি।</td></tr>';
   }
 
   sel.addEventListener('change', () => { month = Number(sel.value); render(); });
-  render();
+  MK.start(['flora', 'farms'], render);
 </script>
 </body>
 </html>

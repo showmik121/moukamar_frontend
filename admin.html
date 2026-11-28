@@ -83,7 +83,7 @@
       </div>
       <div style="display:flex;gap:10px;align-items:center">
         <a href="dashboard.html" class="btn" style="background:#2B2620;color:#F5F3EC;border-color:#3E372E">ইউজার মোডে যান</a>
-        <a href="http://127.0.0.1:8000/admin/" target="_blank" class="btn primary">Django Admin ওপেন করুন ↗</a>
+        <a href="/admin/" class="btn primary">Django Admin ওপেন করুন ↗</a>
         <button type="button" class="btn" onclick="handleLogout(event)" style="background:#3A1F1D;color:#FFA4A2;border-color:#5A2B28">লগ আউট</button>
       </div>
     </div>
@@ -123,11 +123,11 @@
       <section class="card grow-1">
         <h2>সিস্টেম নিয়ন্ত্রণ</h2>
         <div style="display:flex;flex-direction:column;gap:12px">
-          <div class="notice honey">
-            <b>ডাটাবেজ স্ট্যাটাস:</b> সচল (MySQL + Django REST)
+          <div class="notice honey" id="dbStatus">
+            <b>ডাটাবেজ স্ট্যাটাস:</b> যাচাই হচ্ছে…
           </div>
-          <div class="notice green">
-            <b>সার্ভার সংযোগ:</b> http://127.0.0.1:8000
+          <div class="notice green" id="serverStatus">
+            <b>সার্ভার সংযোগ:</b> —
           </div>
           <hr style="border:0;border-top:1px solid var(--line-2);margin:4px 0">
           <button class="btn block" id="refreshDataBtn" type="button">🔄 ডাটা রিফ্রেশ করুন</button>
@@ -141,8 +141,8 @@
     <div class="row">
       <section class="card grow-2">
         <div class="card-head">
-          <h2>সিস্টেমের সক্রিয় খামারসমূহ</h2>
-          <a href="hives.html" style="font-size:14px;font-weight:600">সব দেখুন</a>
+          <h2>নিবন্ধিত খামারিদের খামার</h2>
+          <a href="directory.html" style="font-size:14px;font-weight:600">সব দেখুন</a>
         </div>
         <div class="table-wrap">
           <table style="min-width:540px">
@@ -151,7 +151,8 @@
                 <th>খামারের নাম</th>
                 <th>মালিক</th>
                 <th>অবস্থান</th>
-                <th>অবস্থা</th>
+                <th class="num">বাক্স</th>
+                <th class="num">মধু (কেজি)</th>
               </tr>
             </thead>
             <tbody id="farmTableBody"></tbody>
@@ -161,7 +162,7 @@
 
       <section class="card grow-2">
         <div class="card-head">
-          <h2>সর্বশেষ সতর্কতা ও স্প্রে নোটিশ</h2>
+          <h2>সর্বশেষ স্প্রে নোটিশ ও রোগের খবর</h2>
           <a href="alerts.html" style="font-size:14px;font-weight:600">সতর্কতা তালিকা</a>
         </div>
         <div id="alertListBody" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -175,113 +176,82 @@
 <script src="js/store.js"></script>
 <script src="js/app.js"></script>
 <script>
-  // অ্যাডমিন অথেন্টিকেশন গার্ড
-  const curUser = (typeof Session !== 'undefined') ? Session.get() : null;
-  if (!curUser || (curUser.role !== 'admin' && !curUser.is_staff && !curUser.is_superuser)) {
-    location.replace('index.html?next=admin.html');
-  }
-
+  // অ্যাডমিন পাতা — MK.start(..., { admin: true }) আগে backend-এ লগ ইন যাচাই করে,
+  // অ্যাডমিন না হলে dashboard-এ পাঠায়। আসল সুরক্ষা backend-এ: /api/auth/users/
+  // শুধু অ্যাডমিন পায় (IsAppAdmin)। আগে এই পাতা শুধু localStorage দেখে খুলত,
+  // আর তালিকাটা cookie ছাড়া fetch করত (তাই backend থেকে কিছু আসত না)।
+  const $ = (id) => document.getElementById(id);
+  const ROLE_PILL = {
+    admin: '<span class="pill red">অ্যাডমিন</span>',
+    farmer: '<span class="pill green">খামারি</span>',
+    cropper: '<span class="pill honey">কৃষক</span>'
+  };
   let allUsers = [];
+  let sprays = [];
+  let outbreaks = [];
+  let postCount = 0;
 
-  if (curUser) {
-    const adminLabel = document.getElementById('adminInfoLabel');
-    if (adminLabel) {
-      adminLabel.textContent = `${curUser.name} · ${curUser.email || curUser.phone || 'অ্যাডমিন'} (আইডি: #${curUser.id || 1})`;
-    }
-  }
+  MK.start(['farmers'], async (me) => {
+    $('adminInfoLabel').textContent = `${me.name} · ${me.email || me.phone || 'অ্যাডমিন'} (আইডি: #${me.id})`;
+    document.querySelector('.admin-tag').textContent = me.is_superuser ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন';
+    $('serverStatus').innerHTML = `<b>সার্ভার সংযোগ:</b> ${escapeHtml(location.origin)}`;
+
+    $('userSearch').addEventListener('input', (e) => renderUserTable(e.target.value));
+    $('refreshDataBtn').addEventListener('click', async () => {
+      toast('ডাটা রিফ্রেশ করা হচ্ছে...');
+      try {
+        await MK.load('farmers');
+        await loadAdminData();
+        toast('ডাটা হালনাগাদ হয়েছে');
+      } catch (e) {
+        MK.fail(e);
+      }
+    });
+
+    await loadAdminData();
+  }, { admin: true });
 
   async function loadAdminData() {
-    let usersList = [];
-    
-    // ১. ব্যাকএন্ড থেকে নিবন্ধিত ইউজার ফেচ করা
-    try {
-      const resp = await fetch('http://127.0.0.1:8000/api/auth/users/');
-      if (resp.ok) {
-        const bUsers = await resp.json();
-        if (Array.isArray(bUsers) && bUsers.length > 0) {
-          bUsers.forEach(u => {
-            usersList.push({
-              name: u.name,
-              phone: u.phone,
-              email: u.email,
-              role: u.role,
-              district: u.district,
-              upazila: u.upazila,
-              farm: u.farm_name || u.main_crop,
-              hives: u.experience ? u.experience * 3 : 0
-            });
-          });
-        }
-      }
-    } catch (e) {
-      console.log('Backend user list offline');
-    }
+    const [users, sprayList, outbreakList, posts] = await Promise.all([
+      API.get('auth/users/'),
+      API.get('spray-alerts/'),
+      API.get('outbreaks/'),
+      API.get('community/posts/')
+    ]);
+    // খামারির বাক্সের সংখ্যা v_farmer_directory ভিউ থেকে (FARMERS) — id একই user id
+    const byId = new Map(FARMERS.map((f) => [f.id, f]));
+    allUsers = users.map((u) => {
+      const f = byId.get(u.id);
+      return Object.assign({}, u, { hives: f ? f.hives : 0, honey: f ? f.honeyProduced : 0 });
+    });
+    sprays = sprayList;
+    outbreaks = outbreakList;
+    postCount = posts.length;
+    $('dbStatus').innerHTML = '<b>ডাটাবেজ স্ট্যাটাস:</b> সচল (MySQL + Django REST)';
 
-    // ২. ম্যাপ ও খামারি ডেটা মার্জ করা
-    try {
-      const resp2 = await fetch('http://127.0.0.1:8000/api/map-farmers/');
-      if (resp2.ok) {
-        const mUsers = await resp2.json();
-        if (Array.isArray(mUsers)) {
-          mUsers.forEach(m => {
-            if (!usersList.some(u => (u.phone && u.phone === m.phone) || (u.name && u.name === m.name))) {
-              usersList.push(m);
-            }
-          });
-        }
-      }
-    } catch (e) {}
-
-    // ২. লোকাল মেমোরি ডেটা মার্জ করা
-    if (typeof FARMERS !== 'undefined') {
-      FARMERS.forEach(f => {
-        if (!usersList.some(u => u.phone === f.phone)) {
-          usersList.push({
-            name: f.name,
-            phone: f.phone,
-            role: 'farmer',
-            district: f.district,
-            upazila: f.upazila,
-            farm: f.farm,
-            hives: f.hives || 0
-          });
-        }
-      });
-    }
-
-    // ৩. স্টোর থেকে নিবন্ধিত ইউজার
-    if (typeof USERS !== 'undefined') {
-      USERS.forEach(u => {
-        if (!usersList.some(item => item.phone === u.phone)) {
-          usersList.push(u);
-        }
-      });
-    }
-
-    allUsers = usersList;
     renderStats();
-    renderUserTable();
+    renderUserTable($('userSearch').value);
     renderFarms();
     renderAlerts();
   }
 
   function renderStats() {
-    const totalUsers = allUsers.length;
-    const farmersCount = allUsers.filter(u => u.role !== 'cropper').length;
-    const croppersCount = allUsers.filter(u => u.role === 'cropper').length;
-    const totalHives = allUsers.reduce((sum, u) => sum + (Number(u.hives) || 0), 0);
-    const districts = [...new Set(allUsers.map(u => u.district).filter(Boolean))].length;
+    const farmersCount = allUsers.filter((u) => u.role === 'farmer').length;
+    const croppersCount = allUsers.filter((u) => u.role === 'cropper').length;
+    const totalHives = FARMERS.reduce((sum, f) => sum + (f.hives || 0), 0);
+    const totalHoney = FARMERS.reduce((sum, f) => sum + (f.honeyProduced || 0), 0);
+    const districts = new Set(allUsers.map((u) => u.district).filter(Boolean)).size;
 
     const stats = [
-      { k: 'মোট ব্যবহারকারী', v: bn(totalUsers), s: `${bn(farmersCount)} খামারি · ${bn(croppersCount)} কৃষক` },
-      { k: 'নিবন্ধিত খামার', v: bn(FARMS.length), s: 'সারা দেশে পরিচালিত' },
-      { k: 'মোট মৌমাছির বাক্স', v: bn(totalHives || HIVES.length), s: 'সক্রিয় কলোনি', cls: 'honey' },
-      { k: 'আওতাভুক্ত জেলা', v: bn(districts || 16) + ' টি', s: '৬৪ জেলার নেটওয়ার্ক' },
-      { k: 'সতর্কতা ও স্প্রে', v: bn(NOTIFICATIONS.length), s: 'নিরাপত্তা অ্যালার্ট', cls: 'red' },
-      { k: 'কমিউনিটি পোস্ট', v: bn(typeof DEFAULT_COMMUNITY_POSTS !== 'undefined' ? DEFAULT_COMMUNITY_POSTS.length : 5), s: 'জ্ঞান ও সম্পদ বিনিময়' }
+      { k: 'মোট ব্যবহারকারী', v: bn(allUsers.length), s: `${bn(farmersCount)} খামারি · ${bn(croppersCount)} কৃষক` },
+      { k: 'মোট মৌমাছির বাক্স', v: bn(totalHives), s: `${bn(FARMERS.length)} জন খামারির`, cls: 'honey' },
+      { k: 'মোট মধু উৎপাদন', v: bn(Math.round(totalHoney)) + ' কেজি', s: 'সব খামারির সংগ্রহ মিলিয়ে', cls: 'honey' },
+      { k: 'আওতাভুক্ত জেলা', v: bn(districts) + ' টি', s: 'ব্যবহারকারীদের জেলা' },
+      { k: 'স্প্রে নোটিশ', v: bn(sprays.length), s: `${bn(outbreaks.length)}টা রোগের খবর (৩০ দিন)`, cls: 'red' },
+      { k: 'কমিউনিটি পোস্ট', v: bn(postCount), s: 'জ্ঞান ও সম্পদ বিনিময়' }
     ];
 
-    document.getElementById('adminStats').innerHTML = stats.map(s => `
+    $('adminStats').innerHTML = stats.map((s) => `
       <div class="stat">
         <div class="k">${s.k}</div>
         <div class="v ${s.cls || ''}">${s.v}</div>
@@ -292,84 +262,81 @@
 
   function renderUserTable(query = '') {
     const q = query.trim().toLowerCase();
-    const filtered = allUsers.filter(u => {
-      return !q || 
-        (u.name && u.name.toLowerCase().includes(q)) ||
-        (u.phone && u.phone.includes(q)) ||
-        (u.email && u.email.toLowerCase().includes(q)) ||
-        (u.district && u.district.toLowerCase().includes(q)) ||
-        (u.upazila && u.upazila.toLowerCase().includes(q)) ||
-        (u.farm && u.farm.toLowerCase().includes(q));
-    });
+    const has = (v) => v && String(v).toLowerCase().includes(q);
+    const filtered = allUsers.filter((u) => !q || has(u.name) || has(u.phone) || has(u.email) ||
+      has(u.district) || has(u.upazila) || has(u.farm) || has(u.crop));
 
-    document.getElementById('userCountSub').textContent = `মোট ${bn(filtered.length)} জন ব্যবহারকারী প্রদর্শিত হচ্ছে`;
+    $('userCountSub').textContent = `মোট ${bn(filtered.length)} জন ব্যবহারকারী প্রদর্শিত হচ্ছে`;
 
     if (filtered.length === 0) {
-      document.getElementById('userTableBody').innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center;padding:16px">কোনো ব্যবহারকারী পাওয়া যায়নি</td></tr>';
+      $('userTableBody').innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center;padding:16px">কোনো ব্যবহারকারী পাওয়া যায়নি</td></tr>';
       return;
     }
 
-    document.getElementById('userTableBody').innerHTML = filtered.map((u, i) => {
-      const isAdmin = u.role === 'admin';
-      const isFarmer = u.role !== 'cropper' && !isAdmin;
-      const roleBadge = isAdmin ? '<span class="pill red">অ্যাডমিন</span>' : (isFarmer ? '<span class="pill green">খামারি</span>' : '<span class="pill honey">কৃষক</span>');
+    $('userTableBody').innerHTML = filtered.map((u) => {
+      const isFarmer = u.role === 'farmer';
       return `
         <tr>
           <td>
-            <b>${u.name || '—'}</b>
-            <div style="margin-top:2px">${roleBadge}</div>
+            <b>${escapeHtml(u.name || '—')}</b>
+            <div style="margin-top:2px">${ROLE_PILL[u.role] || ROLE_PILL.farmer}</div>
           </td>
           <td>
-            ${u.email ? `<div style="font-size:12px;color:var(--muted)">${u.email}</div>` : ''}
-            <code>${u.phone || '—'}</code>
+            ${u.email ? `<div style="font-size:12px;color:var(--muted)">${escapeHtml(u.email)}</div>` : ''}
+            <code>${escapeHtml(u.phone || '—')}</code>
           </td>
-          <td>${u.upazila ? u.upazila + ', ' : ''}${u.district || '—'}</td>
-          <td>${u.farm || u.crop || u.main_crop || '—'}</td>
-          <td class="num">${bn(u.hives || 0)}</td>
+          <td>${escapeHtml([u.upazila, u.district].filter(Boolean).join(', ') || '—')}</td>
+          <td>${escapeHtml(u.farm || u.crop || '—')}</td>
+          <td class="num">${isFarmer ? bn(u.hives || 0) : '—'}</td>
           <td style="text-align:center">
-            <button class="action-btn view" onclick="location.href='profile.html?farmer=${encodeURIComponent(u.name)}'">প্রোফাইল</button>
+            ${isFarmer ? `<a class="action-btn view" href="profile.html?farmer=${encodeURIComponent(u.id)}">প্রোফাইল</a>` : '—'}
           </td>
         </tr>
       `;
     }).join('');
   }
 
+  // প্রতি খামারির প্রধান খামার — v_farmer_directory ভিউ থেকে
   function renderFarms() {
-    document.getElementById('farmTableBody').innerHTML = FARMS.slice(0, 5).map(f => `
-      <tr class="link-row" onclick="location.href='hives.html?farm=${f.id}'">
-        <td><b>${f.name}</b></td>
-        <td>${f.ownerPhone ? 'নিবন্ধিত খামারি' : 'রহিম উদ্দিন'}</td>
-        <td>${f.upazila}, ${f.district}</td>
-        <td><span class="pill ${f.status === 'সক্রিয়' ? 'green' : 'gray'}">${f.status}</span></td>
+    const list = FARMERS.slice().sort((a, b) => (b.hives || 0) - (a.hives || 0)).slice(0, 6);
+    $('farmTableBody').innerHTML = list.length ? list.map((f) => `
+      <tr class="link-row" onclick="location.href='profile.html?farmer=${encodeURIComponent(f.id)}'">
+        <td><b>${escapeHtml(f.farm || '—')}</b></td>
+        <td>${escapeHtml(f.name)}</td>
+        <td>${escapeHtml([f.upazila, f.district].filter(Boolean).join(', ') || '—')}</td>
+        <td class="num">${bn(f.hives || 0)}</td>
+        <td class="num">${bn(f.honeyProduced || 0)}</td>
       </tr>
-    `).join('');
+    `).join('') : '<tr><td colspan="5" class="empty" style="text-align:center;padding:16px">এখনো কোনো খামারি নিবন্ধন করেননি</td></tr>';
   }
 
+  // কৃষকদের স্প্রে নোটিশ (অ্যাডমিন সবগুলো দেখেন) আর গত ৩০ দিনের রোগের খবর
   function renderAlerts() {
-    document.getElementById('alertListBody').innerHTML = NOTIFICATIONS.slice(0, 4).map(n => `
+    const items = [
+      ...sprays.slice(0, 4).map((s) => ({
+        dot: 'red',
+        title: `${s.crop_name || 'ফসল'}-এ স্প্রে — ${s.upazila_name || ''}${s.district_name ? ', ' + s.district_name : ''}`,
+        body: [s.chemical, s.spray_time, s.notes].filter(Boolean).join(' · '),
+        when: `${MK.date(s.spray_date)} · ${s.cropper_name || 'কৃষক'}`
+      })),
+      ...outbreaks.slice(0, 3).map((o) => ({
+        dot: o.alert ? 'red' : 'honey',
+        title: `${o.disease} — ${o.where}`,
+        body: `${bn(o.farms || 0)}টা খামার, ${bn(o.hives || 0)}টা বাক্সে`,
+        when: 'শেষ দেখা ' + MK.date(o.last_seen)
+      }))
+    ];
+    $('alertListBody').innerHTML = items.length ? items.map((n) => `
       <div class="alert-item">
-        <span class="dot ${n.kind === 'spray' ? 'red' : 'honey'}"></span>
+        <span class="dot ${n.dot}"></span>
         <div>
-          <b>${n.title}</b>
-          <span style="font-size:13px">${n.body}</span>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${n.when || 'সম্প্রতি'}</div>
+          <b>${escapeHtml(n.title)}</b>
+          <span style="font-size:13px">${escapeHtml(n.body)}</span>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${escapeHtml(n.when)}</div>
         </div>
       </div>
-    `).join('');
+    `).join('') : '<div class="empty">কোনো স্প্রে নোটিশ বা রোগের খবর নেই</div>';
   }
-
-  // ইভেন্ট লিসেনারস
-  document.getElementById('userSearch').addEventListener('input', (e) => {
-    renderUserTable(e.target.value);
-  });
-
-  document.getElementById('refreshDataBtn').addEventListener('click', () => {
-    toast('ডাটা রিফ্রেশ করা হচ্ছে...');
-    loadAdminData();
-  });
-
-  // পেজ লোড
-  loadAdminData();
 </script>
 </body>
 </html>

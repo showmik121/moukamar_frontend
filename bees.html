@@ -140,9 +140,15 @@
       about: 'সবচেয়ে ছোট মধু মৌমাছি। ফসলের পরাগায়নে সাহায্য করে।',
       plus: ['পরাগায়নে উপকারী'], minus: ['পালন করা হয় না', 'মধু সামান্য'] }
   ];
-  const counts = {};
-  HIVES.forEach((h) => { counts[h.species] = (counts[h.species] || 0) + 1; });
-  document.getElementById('mine').textContent = 'আপনার খামারে: ' + Object.entries(counts).map(([s, n]) => `${s.replace('Apis ', '')} ${bn(n)}টা`).join(' · ');
+  // আপনার খামারের বাক্সগুলো কোন প্রজাতির — /api/hives/status/ থেকে (লগ ইন যাচাইও এখানে)
+  MK.start(['hives'], () => {
+    const counts = {};
+    HIVES.forEach((h) => { counts[h.species] = (counts[h.species] || 0) + 1; });
+    const parts = Object.entries(counts).map(([s, n]) => `${String(s).replace('Apis ', '')} ${bn(n)}টা`);
+    document.getElementById('mine').textContent = parts.length
+      ? 'আপনার খামারে: ' + parts.join(' · ')
+      : 'আপনার খামারে এখনো কোনো বাক্স নেই';
+  });
   document.getElementById('species').innerHTML = SPECIES.map((s) => `
     <article class="sp ${s.kept ? 'kept' : ''}">
       <span class="pill tag ${s.kept ? 'honey' : 'gray'}">${s.kept ? 'বাক্সে পালন করা যায়' : 'বুনো'}</span>

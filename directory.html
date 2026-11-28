@@ -66,32 +66,44 @@
   </main>
 </div>
 
-<script src="js/app.js"></script>
 <script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
 <script>
   const $ = (id) => document.getElementById(id);
-  const uniq = (arr) => [...new Set(arr)];
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))];
+  const opt = (v) => `<option>${escapeHtml(v)}</option>`;
 
-  $('district').innerHTML = '<option value="">সব জেলা</option>' + uniq(FARMERS.map((f) => f.district)).map((d) => `<option>${d}</option>`).join('');
-  $('flora').innerHTML = '<option value="">সব ফুল</option>' + FLORA.filter((f) => !f.dearth).map((f) => `<option>${f.name}</option>`).join('');
+  // খামারি তালিকা আসে /api/farmers/ থেকে (v_farmer_directory ভিউ) — বাক্স,
+  // মোট মধু, ফুল সব ডাটাবেজে গোনা। লগ ইন ছাড়া এই তালিকা দেখা যায় না।
+  MK.start(['farmers', 'flora'], () => {
+    $('district').innerHTML = '<option value="">সব জেলা</option>' + uniq(FARMERS.map((f) => f.district)).map(opt).join('');
+    $('flora').innerHTML = '<option value="">সব ফুল</option>' + FLORA.filter((f) => !f.dearth).map((f) => opt(f.name)).join('');
+
+    $('district').addEventListener('change', () => { fillUpazila(); render(); });
+    ['upazila', 'flora', 'type'].forEach((id) => $(id).addEventListener('change', render));
+    $('q').addEventListener('input', render);
+
+    fillUpazila();
+    render();
+  });
 
   function fillUpazila() {
     const d = $('district').value;
     const list = uniq(FARMERS.filter((f) => !d || f.district === d).map((f) => f.upazila));
-    $('upazila').innerHTML = '<option value="">সব উপজেলা</option>' + list.map((u) => `<option>${u}</option>`).join('');
+    $('upazila').innerHTML = '<option value="">সব উপজেলা</option>' + list.map(opt).join('');
   }
 
-  // backend-এ: users JOIN profiles JOIN apiaries JOIN upazilas JOIN districts ... WHERE ...
   function render() {
     const q = $('q').value.trim();
     const d = $('district').value, u = $('upazila').value, fl = $('flora').value, t = $('type').value;
     const list = FARMERS.filter((f) =>
-      (!q || f.name.includes(q) || f.farm.includes(q)) && (!d || f.district === d) && (!u || f.upazila === u) &&
-      (!fl || f.flora.includes(fl)) && (!t || f.type === t));
+      (!q || (f.name || '').includes(q) || (f.farm || '').includes(q)) && (!d || f.district === d) &&
+      (!u || f.upazila === u) && (!fl || (f.flora || []).includes(fl)) && (!t || f.type === t));
 
     const place = u ? `${u}, ${d}` : d || 'সারা দেশ';
     $('resultTitle').textContent = `${place} — ${bn(list.length)} জন খামারি`;
-    const totalHives = list.reduce((s, f) => s + f.hives, 0);
+    const totalHives = list.reduce((s, f) => s + (f.hives || 0), 0);
     $('areaStats').innerHTML = [
       ['খামারি', bn(list.length)],
       ['মোট বাক্স', bn(totalHives)],
@@ -99,38 +111,40 @@
       ['ভ্রাম্যমাণ', bn(list.filter((f) => f.type === 'ভ্রাম্যমাণ').length)]
     ].map((s) => `<div class="stat"><div class="k">${s[0]}</div><div class="v">${s[1]}</div></div>`).join('');
 
-    $('cards').innerHTML = list.length ? list.map((f) => `
+    if (!FARMERS.length) {
+      $('cards').innerHTML = '<div class="empty">এখনো কোনো খামারি নিবন্ধন করেননি</div>';
+    } else {
+      $('cards').innerHTML = list.length ? list.map((f) => `
       <article class="farmer">
         <div class="top">
-          <span class="avatar">${f.name.charAt(0)}</span>
-          <div class="who"><b>${f.farm}</b><span>${f.name} · ${bn(f.exp)} বছরের অভিজ্ঞতা</span></div>
-          <span class="pill ${f.type === 'ভ্রাম্যমাণ' ? 'blue' : 'gray'}">${f.type}</span>
+          <span class="avatar">${escapeHtml([...(f.name || 'ম')][0])}</span>
+          <div class="who"><b>${escapeHtml(f.farm || f.name + '-এর খামার')}</b><span>${escapeHtml(f.name)} · ${bn(f.exp || 0)} বছরের অভিজ্ঞতা</span></div>
+          <span class="pill ${f.type === 'ভ্রাম্যমাণ' ? 'blue' : 'gray'}">${escapeHtml(f.type || '—')}</span>
         </div>
-        <div class="meta"><span><b style="color:var(--ink)">${bn(f.hives)}</b> বাক্স</span><span>${f.upazila}, ${f.district}</span></div>
-        <div class="chips">${f.flora.map((x) => `<span class="pill honey">${x}</span>`).join('')}</div>
+        <div class="meta"><span><b style="color:var(--ink)">${bn(f.hives || 0)}</b> বাক্স</span><span><b style="color:var(--ink)">${bn(f.honeyProduced || 0)}</b> কেজি মধু</span><span>${escapeHtml([f.upazila, f.district].filter(Boolean).join(', ') || '—')}</span></div>
+        <div class="chips">${(f.flora || []).map((x) => `<span class="pill honey">${escapeHtml(x)}</span>`).join('')}</div>
         <div class="btns">
-          <a class="btn primary" href="map.html?farmer=${f.id}">
+          <a class="btn primary" href="profile.html?farmer=${encodeURIComponent(f.id)}">প্রোফাইল দেখুন</a>
+          <a class="btn" href="map.html?farmer=${encodeURIComponent(f.id)}">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>
-            ম্যাপ ও প্রোফাইল দেখুন
+            ম্যাপে দেখুন
           </a>
         </div>
       </article>`).join('') : '<div class="empty">এই filter-এ কোনো খামারি নেই</div>';
-    setupDemoButtons();
+    }
 
     // GROUP BY district
     const groups = {};
-    list.forEach((f) => { groups[f.district] = groups[f.district] || { n: 0, h: 0 }; groups[f.district].n++; groups[f.district].h += f.hives; });
+    list.forEach((f) => {
+      const k = f.district || '—';
+      groups[k] = groups[k] || { n: 0, h: 0 };
+      groups[k].n++;
+      groups[k].h += f.hives || 0;
+    });
     $('byDistrict').innerHTML = Object.entries(groups).sort((a, b) => b[1].h - a[1].h)
-      .map(([k, v]) => `<tr><td>${k}</td><td class="num">${bn(v.n)}</td><td class="num">${bn(v.h)}</td></tr>`).join('')
+      .map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td class="num">${bn(v.n)}</td><td class="num">${bn(v.h)}</td></tr>`).join('')
       || '<tr><td colspan="3" class="empty">—</td></tr>';
   }
-
-  $('district').addEventListener('change', () => { fillUpazila(); render(); });
-  ['upazila', 'flora', 'type'].forEach((id) => $(id).addEventListener('change', render));
-  $('q').addEventListener('input', render);
-
-  fillUpazila();
-  render();
 </script>
 </body>
 </html>
